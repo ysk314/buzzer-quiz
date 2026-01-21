@@ -728,9 +728,18 @@
                     openBtn.classList.add('hidden');
                 }
 
+                // openBtn のテキストを動的に設定
                 const isFirstWait = (rNum === 1) && room.roomState === 'WAITING' && !room.openTimestamp;
                 if (isFirstWait) {
                     openBtn.textContent = '🚀 クイズスタート！';
+                } else if (hasPenalty && room.roomState !== 'OPEN') {
+                    // ペナルティ中で OPEN でない場合は「全員ペナルティ解除」
+                    openBtn.textContent = '🔓 全員ペナルティ解除';
+                } else {
+                    openBtn.textContent = '🔓 回答再開';
+                }
+
+                if (isFirstWait) {
                     waitingDisplay.innerHTML = '<p class="text-secondary" style="font-size: 1.2rem;">参加者が揃ったら、「クイズスタート」をタップ！</p>';
                 } else if (room.roomState === 'OPEN') {
                     // 回答受付中
@@ -740,8 +749,7 @@
                     waitingDisplay.innerHTML = '<p class="text-accent" style="font-size: 1.2rem;">正解！「次の問題へ」を押してください</p>';
                 } else if (showOpenBtn) {
                     // ペナルティがいる場合は解除を強調、それ以外は回答再開
-                    openBtn.textContent = hasPenalty ? '🔓 全員ペナルティ解除' : '🔓 回答再開';
-                    waitingDisplay.innerHTML = hasPenalty ? '<p class="text-secondary" style="font-size: 1.2rem;">「ペナルティ解除」を押すと全員回答可能になります</p>' : '<p class="text-secondary" style="font-size: 1.2rem;">「回答再開」を押してください</p>';
+                    waitingDisplay.innerHTML = hasPenalty ? '<p class="text-secondary" style="font-size: 1.2rem;">「全員ペナルティ解除」を押すと全員回答可能になります</p>' : '<p class="text-secondary" style="font-size: 1.2rem;">「回答再開」を押してください</p>';
                 } else {
                     waitingDisplay.innerHTML = '';
                 }
