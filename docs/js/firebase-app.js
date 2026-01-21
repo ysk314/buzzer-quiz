@@ -15,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // アプリバージョン
-const APP_VERSION = 'v1.4.0'; // v1.4.0に更新（QRCode ID竞合修正）
+const APP_VERSION = 'v1.4.2'; // v1.4.2に更新（backupクリーンアップ粗一）
 window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -365,12 +365,11 @@ class RoomManager {
         const roomSnapshot = await this.roomRef.once('value');
         const room = roomSnapshot.val();
 
-        // バックアップ（Undo用）
+        // バックアップ（Undo用）- undefined値を除外
         const backup = {
             players: room.players,
             roomState: room.roomState,
             roundNumber: room.roundNumber,
-            winner: room.winner,
             canAdvance: room.canAdvance || false
         };
 
@@ -395,8 +394,52 @@ class RoomManager {
             }
         }
 
-        await this.roomRef.update(updates);
-        return { success: true, roundNumber: updates.roundNumber };
+        // Firebase に null/undefined を送信しないようにクリーンアップ
+        const cleanUpdates = {};
+        const traverse = (obj, prefix) => {
+            for (const key in obj) {
+                if (obj.hasOwnProperty(key)) {
+                    const value = obj[key];
+                    if (value === null || value === undefined) {
+                        // スキップ
+                    } else if (typeof value === 'object' && !Array.isArray(value)) {
+                        traverse(value, prefix ? `${prefix}/${key}` : key);
+                    } else {
+                        cleanUpdates[prefix ? `${prefix}/${key}` : key] = value;
+                    }
+                }
+            }
+        };
+
+        // backup オブジェクト用のクリーンアップ
+        const cleanBackup = {};
+        if (backup.players) cleanBackup.players = backup.players;
+        if (backup.roomState) cleanBackup.roomState = backup.roomState;
+        if (backup.roundNumber) cleanBackup.roundNumber = backup.roundNumber;
+        if (backup.canAdvance !== undefined) cleanBackup.canAdvance = backup.canAdvance;
+
+        const finalUpdates = {
+            roundNumber: updates.roundNumber,
+            roomState: updates.roomState,
+            canAdvance: updates.canAdvance,
+            openTimestamp: updates.openTimestamp,
+            winner: null,
+            backup: cleanBackup
+        };
+
+        // プレイヤー更新をマージ
+        for (const t in room.players) {
+            const player = room.players[t];
+            if (player.penaltyNextRound) {
+                finalUpdates[`players/${t}/playerState`] = 'LOCKED_PENALTY_THIS';
+                finalUpdates[`players/${t}/penaltyNextRound`] = false;
+            } else {
+                finalUpdates[`players/${t}/playerState`] = 'READY';
+            }
+        }
+
+        await this.roomRef.update(finalUpdates);
+        return { success: true, roundNumber: finalUpdates.roundNumber };
     }
 
     // ルール更新
