@@ -180,71 +180,73 @@
                         🏠 TOPへ戻る
                     </button>
                 </div>
+            </div> <!-- choiceSection end -->
 
-                <!-- ルーム作成前 -->
-                <div id="createSection" class="hidden">
-                    <h3 class="mb-md">新規ルーム作成</h3>
-                    <p class="text-secondary mb-lg">新しい6桁のルームコードを発行します</p>
-                    <div class="control-buttons">
-                        <button class="btn btn-secondary" id="backToChoiceBtn1">戻る</button>
-                        <button class="btn btn-primary" id="createRoomBtn">ルームを作成</button>
-                    </div>
-                </div>
-
-                <!-- ルーム再開 -->
-                <div id="resumeSection" class="hidden">
-                    <h3 class="mb-md">ルーム再開</h3>
-                    <div class="input-group text-left" style="margin-bottom: 16px;">
-                        <label>ルームコード (6桁)</label>
-                        <input type="text" class="input" id="resumeRoomCode" placeholder="123456" maxlength="6"
-                            pattern="[0-9]{6}">
-                    </div>
-                    <div class="input-group text-left">
-                        <label>ホストPIN (4桁)</label>
-                        <input type="text" class="input" id="resumePin" placeholder="XXXX" maxlength="4"
-                            pattern="[0-9]{4}">
-                    </div>
-                    <div class="control-buttons mt-lg">
-                        <button class="btn btn-secondary" id="backToChoiceBtn2">戻る</button>
-                        <button class="btn btn-primary" id="resumeRoomBtn">再開する</button>
-                    </div>
-                </div>
-
-                <!-- ルーム作成後 -->
-                <div id="roomCreatedSection" class="hidden">
-                    <p class="text-secondary mb-md" id="roomCreatedMsg">ルームが作成されました！</p>
-
-                    <div class="room-code" id="displayRoomCode"></div>
-
-                    <div class="mt-lg">
-                        <p class="text-muted mb-sm">参加URL</p>
-                        <div id="qrcode" style="display: flex; justify-content: center; margin-bottom: 20px;"></div>
-                        <input type="text" class="input" id="shareUrl" readonly style="text-align: center;">
-                        <button class="btn btn-small btn-secondary mt-sm" id="copyUrlBtn">
-                            📋 コピー
-                        </button>
-                    </div>
-
-                    <div class="mt-lg" id="pinDisplaySection">
-                        <p class="text-muted mb-sm">ホストPIN（メモしてください）</p>
-                        <div class="room-code" id="displayPin" style="font-size: 2rem;"></div>
-                    </div>
-
-                    <!-- 戻るボタン追加 -->
-                    <div class="mt-md text-left">
-                        <button class="btn btn-small btn-secondary" id="backToChoiceFromCreated">戻る</button>
-                    </div>
-
-                    <div class="mt-lg">
-                        <button class="btn btn-primary btn-large" id="autoJoinBtn">
-                            🚀 ホストとして開始
-                        </button>
-                        <button class="btn btn-secondary mt-md" id="settingsTogglePre" style="width: 100%;">
-                            ⚙️ ルール設定
-                        </button>
-                    </div>
+            <!-- ルーム作成前 -->
+            <div id="createSection" class="hidden">
+                <h3 class="mb-md">新規ルーム作成</h3>
+                <p class="text-secondary mb-lg">新しい6桁のルームコードを発行します</p>
+                <div class="control-buttons">
+                    <button class="btn btn-secondary" id="backToChoiceBtn1">戻る</button>
+                    <button class="btn btn-primary" id="createRoomBtn">ルームを作成</button>
                 </div>
             </div>
+
+            <!-- ルーム再開 -->
+            <div id="resumeSection" class="hidden">
+                <h3 class="mb-md">ルーム再開</h3>
+                <div class="input-group text-left" style="margin-bottom: 16px;">
+                    <label>ルームコード (6桁)</label>
+                    <input type="text" class="input" id="resumeRoomCode" placeholder="123456" maxlength="6"
+                        pattern="[0-9]{6}">
+                </div>
+                <div class="input-group text-left">
+                    <label>ホストPIN (4桁)</label>
+                    <input type="text" class="input" id="resumePin" placeholder="XXXX" maxlength="4" pattern="[0-9]{4}">
+                </div>
+                <div class="control-buttons mt-lg">
+                    <button class="btn btn-secondary" id="backToChoiceBtn2">戻る</button>
+                    <button class="btn btn-primary" id="resumeRoomBtn">再開する</button>
+                </div>
+            </div>
+
+            <!-- ルーム作成後 -->
+            <div id="roomCreatedSection" class="hidden">
+                <p class="text-secondary mb-md" id="roomCreatedMsg">ルームが作成されました！</p>
+
+                <div class="room-code" id="displayRoomCode"></div>
+
+                <div class="mt-lg">
+                    <p class="text-muted mb-sm">参加URL</p>
+                    <div id="qrcode" style="display: flex; justify-content: center; margin-bottom: 20px;"></div>
+                    <input type="text" class="input" id="shareUrl" readonly style="text-align: center;">
+                    <button class="btn btn-small btn-secondary mt-sm" id="copyUrlBtn">
+                        📋 コピー
+                    </button>
+                </div>
+
+                <div class="mt-lg" id="pinDisplaySection">
+                    <p class="text-muted mb-sm">ホストPIN（メモしてください）</p>
+                    <div class="room-code" id="displayPin" style="font-size: 2rem;"></div>
+                </div>
+
+                <!-- 戻るボタン追加 -->
+                <div class="mt-md text-left">
+                    <button class="btn btn-small btn-secondary" id="backToChoiceFromCreated">戻る</button>
+                </div>
+
+                <div class="mt-lg">
+                    <button class="btn btn-primary btn-large" id="autoJoinBtn">
+                        🚀 ホストとして開始
+                    </button>
+                    <button class="btn btn-secondary mt-md" id="settingsTogglePre" style="width: 100%;">
+                        ⚙️ ルール設定
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="mt-lg text-muted" style="font-size: 0.8rem;">
+            Buzzer Quiz App v1.2.1
         </div>
     </div>
 
