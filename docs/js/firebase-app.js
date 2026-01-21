@@ -13,9 +13,22 @@ const firebaseConfig = {
 // Firebase初期化
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
+const auth = firebase.auth();
+
+// 匿名ログイン
+auth.onAuthStateChanged((user) => {
+    if (!user) {
+        // ログインしていないなら匿名ログイン
+        auth.signInAnonymously().catch((error) => {
+            console.error('匿名ログインエラー:', error);
+        });
+    } else {
+        console.log('✅ ログイン済み:', user.uid);
+    }
+});
 
 // アプリバージョン
-const APP_VERSION = 'v1.5.0'; // v1.5.0に更新（UX改善）
+const APP_VERSION = 'v1.5.1'; // v1.5.1に更新（Firebase匹名ログイン追加）
 window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {
