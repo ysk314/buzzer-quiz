@@ -15,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // アプリバージョン
-const APP_VERSION = 'v1.3.4'; // v1.3.4に更新（nextRound自動OPEN遷移修正）
+const APP_VERSION = 'v1.3.5'; // v1.3.5に更新（Socket.ioを真実の源に）
 window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {

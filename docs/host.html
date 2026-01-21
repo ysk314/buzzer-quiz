@@ -7,6 +7,8 @@
     <title>🎯 早押しクイズ - ホスト</title>
     <link rel="stylesheet" href="css/styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Socket.io -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -402,6 +404,20 @@
             let currentRules = {};
             let previousState = null; // 前回のステートを保持
 
+            // Socket.io 接続
+            const socket = io();
+
+            // Socket.io リスナー
+            socket.on('roomStateUpdate', (data) => {
+                console.log('📡 roomStateUpdate received:', data);
+                if (data.roundNumber) {
+                    document.getElementById('roundNumber').textContent = data.roundNumber;
+                    const rDisp = document.getElementById('roundNumberDisplay');
+                    if (rDisp) rDisp.textContent = data.roundNumber;
+                }
+                // UI 更新は Firebase リスナーで行う（二重更新を避けるため）
+            });
+
             const setupScreen = document.getElementById('setupScreen');
             const mainScreen = document.getElementById('mainScreen');
             const createSection = document.getElementById('createSection');
@@ -556,13 +572,21 @@
             // 解放
             document.getElementById('openBtn').addEventListener('click', async () => {
                 playSound('open');
-                await roomManager.openBuzz();
+                socket.emit('openBuzz', { roomCode }, (result) => {
+                    if (!result.success) {
+                        console.error('openBuzz failed:', result.error);
+                    }
+                });
             });
 
             // 正解
             document.getElementById('correctBtn').addEventListener('click', async () => {
                 playSound('correct');
-                await roomManager.judge('correct');
+                socket.emit('judge', { roomCode, result: 'correct' }, (result) => {
+                    if (!result.success) {
+                        console.error('judge failed:', result.error);
+                    }
+                });
 
                 // 自動進行: 廃止（手動のみ）
             });
@@ -570,18 +594,30 @@
             // 誤答
             document.getElementById('wrongBtn').addEventListener('click', async () => {
                 playSound('wrong');
-                await roomManager.judge('wrong');
+                socket.emit('judge', { roomCode, result: 'wrong' }, (result) => {
+                    if (!result.success) {
+                        console.error('judge failed:', result.error);
+                    }
+                });
 
-                // 自動再開: 0.5秒後にOpen (ペナルティ維持)
-                setTimeout(async () => {
-                    await roomManager.openBuzz(false); // forceClearPenalty=false
+                // 自動再開: 0.5秒後にOpen (ペナルティ筙持)
+                setTimeout(() => {
+                    socket.emit('openBuzz', { roomCode }, (result) => {
+                        if (!result.success) {
+                            console.error('openBuzz failed:', result.error);
+                        }
+                    });
                 }, 500);
             });
 
             // 次へ
             document.getElementById('nextBtn').addEventListener('click', async () => {
                 playSound('open');
-                await roomManager.nextRound();
+                socket.emit('nextRound', { roomCode }, (result) => {
+                    if (!result.success) {
+                        console.error('nextRound failed:', result.error);
+                    }
+                });
             });
 
             // Undo (一手戻す)
