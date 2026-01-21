@@ -244,7 +244,7 @@
             </div>
             <!-- Version display moved inside card -->
             <div class="mt-lg text-muted" style="font-size: 0.8rem;">
-                Buzzer Quiz App v1.3.0
+                Buzzer Quiz App v1.3.1
             </div>
         </div> <!-- card end -->
     </div> <!-- setupScreen end -->
@@ -731,8 +731,11 @@
                 if (isFirstWait) {
                     openBtn.textContent = '🚀 クイズスタート！';
                     waitingDisplay.innerHTML = '<p class="text-secondary" style="font-size: 1.2rem;">参加者が揃ったら、「クイズスタート」をタップ！</p>';
+                } else if (room.roomState === 'OPEN') {
+                    // 回答受付中
+                    waitingDisplay.innerHTML = '<p class="text-success" style="font-size: 1.2rem;">🔹 回答受付中... （ボタンを連打できます！）</p>';
                 } else if (room.canAdvance) {
-                    // 正解(または誤答)後に canAdvance=true になった際。winnerがnullになっても出し続ける
+                    // 正解(または誤答)後に canAdvance=true になった際。
                     waitingDisplay.innerHTML = '<p class="text-accent" style="font-size: 1.2rem;">正解！「次の問題へ」を押してください</p>';
                 } else if (showOpenBtn) {
                     // ペナルティがいる場合は解除を強調、それ以外は回答再開
