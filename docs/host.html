@@ -257,44 +257,60 @@
                 </div>
                 <div id="roomStateBadge" class="badge badge-waiting">WAITING</div>
             </div>
-            <div style="display: flex; gap: 8px;">
-                <button id="finishGameBtn" class="btn btn-small btn-danger">終了</button>
-                <a href="index.html" class="btn btn-small btn-secondary">戻る</a>
-            </div>
+            <a href="javascript:history.back()" class="btn btn-small btn-secondary">戻る</a>
         </header>
 
         <div class="main-grid">
             <div class="card control-center">
-                <h2>コントロール <span id="questionNumberDisplay"
-                        style="font-size: 0.8em; margin-left: 10px; color: var(--accent-cyan);">第1問</span></h2>
-
-                <!-- 先着者表示 -->
-                <div id="winnerDisplay" class="winner-display hidden mt-lg">
-                    <p class="text-muted">先着</p>
-                    <div class="winner-name" id="winnerName">---</div>
-                    <div class="winner-time"><span id="reactionTime">0</span> ms</div>
+                <!-- 問題数表示 -->
+                <div class="text-center mb-lg">
+                    <h2 style="font-size: 2.5rem; color: var(--accent-cyan); margin: 0;">第<span
+                            id="roundNumberDisplay">1</span>問</h2>
                 </div>
 
-                <!-- 待機時表示 -->
-                <div id="waitingDisplay" class="mt-lg">
-                    <p class="text-secondary" style="font-size: 1.2rem;">「回答再開」を押して早押しスタート！</p>
+                <!-- ランキング表示エリア（終了時に表示） -->
+                <div id="finalRankingSection" class="hidden">
+                    <h3 class="text-center text-accent mb-md">🏆 最終結果 🏆</h3>
+                    <ul class="ranking-list" id="hostRankingList"></ul>
                 </div>
 
-                <!-- 判定ボタン -->
-                <div id="judgeButtons" class="judge-buttons hidden">
-                    <button class="btn btn-success judge-btn" id="correctBtn">○</button>
-                    <button class="btn btn-danger judge-btn" id="wrongBtn">×</button>
-                </div>
+                <!-- コントロールエリア -->
+                <div id="controlSection">
+                    <!-- 先着者表示 -->
+                    <div id="winnerDisplay" class="winner-display hidden mt-lg">
+                        <p class="text-muted">先着</p>
+                        <div class="winner-name" id="winnerName">---</div>
+                        <div class="winner-time"><span id="reactionTime">0</span> ms</div>
+                    </div>
 
-                <!-- 進行ボタン -->
-                <div class="control-buttons">
-                    <button class="btn btn-primary btn-large" id="openBtn">
-                        🔓 回答再開 (Open)
-                    </button>
-                    <button class="btn btn-secondary" id="nextBtn">
-                        ➡️ 次へ (Next)
-                    </button>
-                </div>
+                    <!-- 待機時表示 -->
+                    <div id="waitingDisplay" class="mt-lg">
+                        <p class="text-secondary" style="font-size: 1.2rem;">参加者が揃ったら、「クイズスタート」をタップ！</p>
+                    </div>
+
+                    <!-- 判定ボタン -->
+                    <div id="judgeButtons" class="judge-buttons hidden">
+                        <button class="btn btn-success judge-btn" id="correctBtn">○</button>
+                        <button class="btn btn-danger judge-btn" id="wrongBtn">×</button>
+                    </div>
+
+                    <!-- 進行ボタン -->
+                    <div class="control-buttons">
+                        <button class="btn btn-primary btn-large" id="openBtn">
+                            🔓 回答再開 (Open)
+                        </button>
+                        <button class="btn btn-secondary btn-large" id="nextBtn">
+                            ➡️ 次へ (Next)
+                        </button>
+                    </div>
+
+                    <!-- 終了ボタンエリア -->
+                    <div class="mt-lg pt-md" style="border-top: 1px solid var(--border-color);">
+                        <button id="finishGameBtn" class="btn btn-danger" style="width: 100%;">
+                            🏁 クイズを終了して結果発表
+                        </button>
+                    </div>
+                </div><!-- /controlSection -->
             </div>
 
             <div class="card">
@@ -567,7 +583,14 @@
 
             // UI更新
             function updateUI(room) {
-                document.getElementById('roundNumber').textContent = room.roundNumber || 1;
+                // ヘッダーや共通表示
+                const rNum = room.roundNumber || 1;
+                document.getElementById('roundNumber').textContent = rNum;
+
+                // 問題数表示更新 (メインエリア)
+                const rDisp = document.getElementById('roundNumberDisplay');
+                if (rDisp) rDisp.textContent = rNum;
+
                 currentRules = room.rules || {};
 
                 const badge = document.getElementById('roomStateBadge');
@@ -576,43 +599,66 @@
                 const judgeButtons = document.getElementById('judgeButtons');
                 const winnerDisplay = document.getElementById('winnerDisplay');
                 const waitingDisplay = document.getElementById('waitingDisplay');
-
-                badge.className = 'badge';
-                badge.className = 'badge';
-                // nextBtn.disabled = !room.canAdvance; // 常に押せるように変更
-
-                // Openボタン文言制御
-                if ((room.roundNumber === 1 || !room.roundNumber) && room.roomState === 'WAITING' && !room.openTimestamp) {
-                    openBtn.textContent = '🚀 クイズスタート';
-                } else {
-                    openBtn.textContent = '🔓 全員ペナルティ解除';
-                }
-
-                // 問題数表示更新
-                document.getElementById('questionNumberDisplay').textContent = `第${room.roundNumber || 1}問`;
+                const controlSection = document.getElementById('controlSection');
+                const finalRankingSection = document.getElementById('finalRankingSection');
 
                 // 終了状態
                 if (room.roomState === 'FINISHED') {
+                    if (controlSection) controlSection.classList.add('hidden');
+                    if (finalRankingSection) finalRankingSection.classList.remove('hidden');
                     badge.classList.add('badge-locked');
                     badge.textContent = 'FINISHED';
-                    openBtn.disabled = true;
-                    document.getElementById('judgeButtons').classList.add('hidden');
-                    document.getElementById('waitingDisplay').innerHTML = '<p class="text-accent">クイズ終了！</p>';
-                    document.getElementById('waitingDisplay').classList.remove('hidden');
+
+                    // ランキング生成
+                    const pList = Object.values(room.players || {});
+                    const sorted = pList.sort((a, b) => (b.score || 0) - (a.score || 0));
+                    const listEl = document.getElementById('hostRankingList');
+                    if (listEl) {
+                        listEl.innerHTML = sorted.map((p, i) => `
+                            <li class="ranking-item ${i === 0 ? 'highlight' : ''}" style="margin-bottom: 8px; padding: 12px; background: var(--bg-card); border-radius: 8px; display: flex; justify-content: space-between;">
+                                <span class="ranking-rank" style="font-weight: bold; font-size: 1.2rem; min-width: 30px;">${i + 1}.</span>
+                                <span class="ranking-name" style="flex: 1; margin-left: 10px;">${escapeHtml(p.displayName)}</span>
+                                <span class="ranking-score" style="font-weight: bold; color: var(--accent-cyan);">${p.score || 0}pt</span>
+                            </li>
+                        `).join('');
+                    }
+
+                    // 音再生 (一度だけ鳴らす)
+                    if (previousState !== 'FINISHED') {
+                        playSound('end');
+                    }
+                    previousState = room.roomState;
+                    updatePlayerList(room.players || {});
                     return;
                 }
 
-                // 早押し音のトリガー (OPEN -> LOCKED)
+                // 通常状態
+                if (controlSection) controlSection.classList.remove('hidden');
+                if (finalRankingSection) finalRankingSection.classList.add('hidden');
+
+                // Openボタン文言
+                const isFirstWait = (rNum === 1) && room.roomState === 'WAITING' && !room.openTimestamp;
+                if (isFirstWait) {
+                    openBtn.textContent = '🚀 クイズスタート！';
+                    waitingDisplay.innerHTML = '<p class="text-secondary" style="font-size: 1.2rem;">参加者が揃ったら、「クイズスタート」をタップ！</p>';
+                } else {
+                    openBtn.textContent = '🔓 全員ペナルティ解除';
+                    waitingDisplay.innerHTML = '<p class="text-secondary" style="font-size: 1.2rem;">「回答再開」を押してください</p>';
+                }
+
+                // 早押し音トリガー
                 if (previousState === 'OPEN' && room.roomState === 'LOCKED') {
                     playSound('buzz');
                 }
                 previousState = room.roomState;
 
+                // バッジ
+                badge.className = 'badge';
                 switch (room.roomState) {
                     case 'WAITING':
                         badge.classList.add('badge-waiting');
                         badge.textContent = 'WAITING';
-                        openBtn.disabled = false;
+                        // openBtn.disabled = false; // 常に有効
                         judgeButtons.classList.add('hidden');
                         winnerDisplay.classList.add('hidden');
                         waitingDisplay.classList.remove('hidden');
@@ -620,7 +666,7 @@
                     case 'OPEN':
                         badge.classList.add('badge-open');
                         badge.textContent = 'OPEN';
-                        openBtn.disabled = true;
+                        // openBtn.disabled = true; // 常に有効
                         judgeButtons.classList.add('hidden');
                         winnerDisplay.classList.add('hidden');
                         waitingDisplay.classList.add('hidden');
@@ -628,7 +674,7 @@
                     case 'LOCKED':
                         badge.classList.add('badge-locked');
                         badge.textContent = 'LOCKED';
-                        openBtn.disabled = true;
+                        // openBtn.disabled = true; // 常に有効
                         judgeButtons.classList.remove('hidden');
                         waitingDisplay.classList.add('hidden');
                         if (room.winner) {
@@ -694,7 +740,8 @@
                 correct: new Audio('./sounds/correct.mp3'),
                 wrong: new Audio('./sounds/wrong.mp3'),
                 open: new Audio('./sounds/open.mp3'),
-                buzz: new Audio('./sounds/buzz.mp3')
+                buzz: new Audio('./sounds/buzz.mp3'),
+                end: new Audio('./sounds/end.mp3') // 追加
             };
 
             function playSound(type) {

@@ -160,6 +160,20 @@
             font-size: 2rem;
             font-weight: 700;
         }
+
+        /* 終了画面用スタイル */
+        .game-finished .buzzer-area {
+            display: none;
+        }
+
+        .game-finished .bottom-section {
+            flex: 1;
+            margin-top: 20px;
+        }
+
+        .game-finished .ranking-card {
+            min-height: 60vh;
+        }
     </style>
 </head>
 
@@ -416,6 +430,13 @@
                     }
                 }
 
+                // 終了画面クラス制御
+                if (roomState === 'FINISHED') {
+                    document.getElementById('mainScreen').classList.add('game-finished');
+                } else {
+                    document.getElementById('mainScreen').classList.remove('game-finished');
+                }
+
                 updateBuzzerState();
                 updateRanking(players);
             }
@@ -461,14 +482,9 @@
                         buzzerBtn.disabled = true;
                         break;
                     case 'FINISHED':
-                        statusText.textContent = 'お疲れ様でした！';
-                        statusText.className = 'status-text';
-                        statusText.style.color = 'var(--text-primary)';
+                        statusText.textContent = ''; // テキスト非表示
                         buzzerBtn.disabled = true;
-                        buzzerBtn.classList.remove('pressed', 'winner', 'locked');
-                        buzzerBtn.style.borderColor = 'var(--accent-purple)';
-                        buzzerText.textContent = 'THANK YOU!';
-                        buzzerText.style.fontSize = '1.5rem';
+                        // ランキングがメインになるのでここはシンプルに
                         break;
                 }
             }
@@ -531,7 +547,7 @@
                 if (confirm('本当に退出しますか？')) {
                     if (playerToken) {
                         roomManager.disconnectPlayer(playerToken);
-                        localStorage.removeItem('buzzer_player_token');
+                        // localStorage.removeItem('buzzer_player_token'); // データ引き継ぎのため削除しない
                     }
                     window.location.href = 'index.html';
                 }
