@@ -7,8 +7,8 @@
     <title>🎯 早押しクイズ - ホスト</title>
     <link rel="stylesheet" href="css/styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <!-- Socket.io -->
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <!-- Socket.io (サーバーから自動配信) -->
+    <script src="/socket.io/socket.io.js"></script>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -407,6 +407,19 @@
             // Socket.io 接続
             const socket = io();
 
+            // Socket.io デバッグリスナー
+            socket.on('connect', () => {
+                console.log('✅ Socket.io connected:', socket.id);
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('❌ Socket.io connection error:', error);
+            });
+
+            socket.on('disconnect', () => {
+                console.log('🔌 Socket.io disconnected');
+            });
+
             // Socket.io リスナー
             socket.on('roomStateUpdate', (data) => {
                 console.log('📡 roomStateUpdate received:', data);
@@ -459,10 +472,19 @@
 
             document.getElementById('createRoomBtn').addEventListener('click', async () => {
                 try {
+                    console.log('🎯 createRoomBtn clicked');
                     // Socket.io でルーム作成
                     socket.emit('createRoom', (result) => {
+                        console.log('📡 createRoom callback result:', result);
+                        if (!result || !result.roomCode) {
+                            console.error('❌ Invalid result:', result);
+                            alert('ルーム作成に失敗しました');
+                            return;
+                        }
+
                         roomCode = result.roomCode;
                         const pin = result.pin;
+                        console.log('✅ Room created:', { roomCode, pin });
 
                         document.getElementById('displayRoomCode').textContent = roomCode;
                         document.getElementById('displayPin').textContent = pin;
@@ -507,6 +529,7 @@
                     });
 
                 } catch (error) {
+                    console.error('❌ createRoom error:', error);
                     alert('ルーム作成に失敗しました: ' + error.message);
                 }
             });

@@ -15,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // アプリバージョン
-const APP_VERSION = 'v1.3.6'; // v1.3.6に更新（ホストSocket.io認証修正）
+const APP_VERSION = 'v1.3.7'; // v1.3.7に更新（Socket.io 404エラー修正）
 window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {

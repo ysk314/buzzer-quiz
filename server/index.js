@@ -20,12 +20,13 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
-// 静的ファイル配信
+// 静的ファイル配信（docs フォルダと public フォルダの両方から提供）
+app.use(express.static(path.join(__dirname, '../docs')));
 app.use(express.static(path.join(__dirname, '../public')));
 
 // ルートへのアクセス
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/index.html'));
+    res.sendFile(path.join(__dirname, '../docs/index.html'));
 });
 
 // ルームへの直接アクセス（QRコード用）
