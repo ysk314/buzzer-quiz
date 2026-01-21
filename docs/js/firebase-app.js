@@ -15,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // アプリバージョン
-const APP_VERSION = 'v1.2.6'; // v1.2.6に更新
+const APP_VERSION = 'v1.2.7'; // v1.2.7に更新
 window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -269,6 +269,15 @@ class RoomManager {
         const roomSnapshot = await this.roomRef.once('value');
         const room = roomSnapshot.val();
 
+        // 判定前の状態をバックアップ（Undo用）
+        const backup = {
+            players: room.players,
+            roomState: room.roomState,
+            roundNumber: room.roundNumber,
+            winner: room.winner,
+            canAdvance: room.canAdvance || false
+        };
+
         if (room.roomState !== 'LOCKED' || !room.winner) {
             return { success: false, error: 'INVALID_STATE' };
         }
@@ -310,6 +319,33 @@ class RoomManager {
             updates['roomState'] = 'LOCKED';
             updates['winner'] = null;
         }
+
+        updates['backup'] = backup;
+        await this.roomRef.update(updates);
+        return { success: true };
+    }
+
+    // 判定を戻す (Undo)
+    async restoreBackup() {
+        const roomSnapshot = await this.roomRef.once('value');
+        const room = roomSnapshot.val();
+
+        if (!room.backup) {
+            return { success: false, error: 'NO_BACKUP' };
+        }
+
+        const updates = {
+            players: room.backup.players,
+            roomState: room.backup.backupState || room.backup.roomState, // 互換性
+            roundNumber: room.backup.roundNumber,
+            winner: room.backup.winner,
+            canAdvance: room.backup.canAdvance || false,
+            backup: null // 使用後は消去
+        };
+
+        // roomStateの正規化（古いバックアップとの互換性）
+        if (room.backup.players) updates.players = room.backup.players;
+        if (room.backup.roomState) updates.roomState = room.backup.roomState;
 
         await this.roomRef.update(updates);
         return { success: true };

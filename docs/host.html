@@ -230,11 +230,6 @@
                     <div class="room-code" id="displayPin" style="font-size: 2rem;"></div>
                 </div>
 
-                <!-- 戻るボタン追加 -->
-                <div class="mt-md text-left">
-                    <button class="btn btn-small btn-secondary" id="backToChoiceFromCreated">戻る</button>
-                </div>
-
                 <div class="mt-lg">
                     <button class="btn btn-primary btn-large" id="autoJoinBtn">
                         🚀 ホストとして開始
@@ -242,11 +237,14 @@
                     <button class="btn btn-secondary mt-md" id="settingsTogglePre" style="width: 100%;">
                         ⚙️ ルール設定
                     </button>
+                    <!-- 戻るボタン位置変更 -->
+                    <button class="btn btn-small btn-secondary mt-md" id="backToChoiceFromCreated"
+                        style="width: 100%;">戻る</button>
                 </div>
             </div>
             <!-- Version display moved inside card -->
             <div class="mt-lg text-muted" style="font-size: 0.8rem;">
-                Buzzer Quiz App v1.2.6
+                Buzzer Quiz App v1.2.7
             </div>
         </div> <!-- card end -->
     </div> <!-- setupScreen end -->
@@ -316,7 +314,14 @@
                             🔓 回答再開 (Open)
                         </button>
                         <button class="btn btn-secondary btn-large" id="nextBtn">
-                            ➡️ 次へ (Next)
+                            ➡️ 次の問題へ
+                        </button>
+                    </div>
+
+                    <!-- Undoボタン追加 -->
+                    <div class="mt-md">
+                        <button id="undoBtn" class="btn btn-small btn-secondary hidden" style="width: 100%;">
+                            ↩️ 前に戻す (Undo)
                         </button>
                     </div>
 
@@ -388,14 +393,10 @@
                 </div>
             </div>
 
-            <div class="setting-row">
-                <span class="setting-label">誤答後の処理</span>
-                <div class="setting-options">
-                    <button class="setting-option active" data-setting="wrongAction" data-value="reopen">再解放</button>
-                    <button class="setting-option" data-setting="wrongAction" data-value="nextInQueue">繰り上げ</button>
-                </div>
-            </div>
         </div>
+    </div>
+    <!-- 誤答後の処理オプション削除 -->
+    </div>
     </div>
 
     <script src="js/firebase-app.js"></script>
@@ -587,6 +588,13 @@
                 await roomManager.nextRound();
             });
 
+            // Undo (一手戻す)
+            document.getElementById('undoBtn').addEventListener('click', async () => {
+                if (confirm('判定をやり直しますか？（スコアや状態が判定前に戻ります）')) {
+                    await roomManager.restoreBackup();
+                }
+            });
+
             // 設定トグル
             document.getElementById('settingsToggle').addEventListener('click', () => {
                 document.getElementById('settingsOverlay').classList.add('active');
@@ -732,6 +740,16 @@
                     waitingDisplay.innerHTML = hasPenalty ? '<p class="text-secondary" style="font-size: 1.2rem;">「ペナルティ解除」を押すと全員回答可能になります</p>' : '<p class="text-secondary" style="font-size: 1.2rem;">「回答再開」を押してください</p>';
                 } else {
                     waitingDisplay.innerHTML = '';
+                }
+
+                // Undoボタン表示制御
+                const undoBtn = document.getElementById('undoBtn');
+                if (undoBtn) {
+                    if (room.backup) {
+                        undoBtn.classList.remove('hidden');
+                    } else {
+                        undoBtn.classList.add('hidden');
+                    }
                 }
 
                 // Nextボタン制御
