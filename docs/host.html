@@ -10,6 +10,7 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <style>
         .host-container {
             min-height: 100vh;
@@ -896,6 +897,16 @@
                     e.returnValue = '';
                 }
             });
+
+            // Version display
+            const vEl = document.createElement('div');
+            vEl.style.position = 'fixed';
+            vEl.style.bottom = '10px';
+            vEl.style.right = '10px';
+            vEl.style.color = 'rgba(255,255,255,0.3)';
+            vEl.style.fontSize = '0.8rem';
+            vEl.textContent = 'v1.5.2';
+            document.body.appendChild(vEl);
         });
     </script>
 </body>
