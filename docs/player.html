@@ -219,6 +219,8 @@
         </header>
 
         <div class="buzzer-area">
+            <h2 class="hidden" id="finishText"
+                style="color: var(--accent-cyan); font-size: 2.5rem; margin-bottom: 20px;">クイズ終了！</h2>
             <div class="status-text" id="statusText">接続中...</div>
             <button class="buzzer-btn" id="buzzerBtn" disabled>
                 <span id="buzzerText">PUSH!</span>
@@ -440,8 +442,12 @@
                 // 終了画面クラス制御
                 if (roomState === 'FINISHED') {
                     document.getElementById('mainScreen').classList.add('game-finished');
+                    const ft = document.getElementById('finishText');
+                    if (ft) ft.classList.remove('hidden');
                 } else {
                     document.getElementById('mainScreen').classList.remove('game-finished');
+                    const ft = document.getElementById('finishText');
+                    if (ft) ft.classList.add('hidden');
                 }
 
                 updateBuzzerState();

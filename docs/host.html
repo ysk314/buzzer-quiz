@@ -176,72 +176,84 @@
                     <button class="btn btn-secondary btn-large" id="showResumeBtn" style="width: 100%;">
                         🔄 ルームを再開する
                     </button>
-                </div>
-            </div>
-
-            <!-- ルーム作成前 -->
-            <div id="createSection" class="hidden">
-                <h3 class="mb-md">新規ルーム作成</h3>
-                <p class="text-secondary mb-lg">新しい6桁のルームコードを発行します</p>
-                <div class="control-buttons">
-                    <button class="btn btn-secondary" id="backToChoiceBtn1">戻る</button>
-                    <button class="btn btn-primary" id="createRoomBtn">ルームを作成</button>
-                </div>
-            </div>
-
-            <!-- ルーム再開 -->
-            <div id="resumeSection" class="hidden">
-                <h3 class="mb-md">ルーム再開</h3>
-                <div class="input-group text-left" style="margin-bottom: 16px;">
-                    <label>ルームコード (6桁)</label>
-                    <input type="text" class="input" id="resumeRoomCode" placeholder="123456" maxlength="6"
-                        pattern="[0-9]{6}">
-                </div>
-                <div class="input-group text-left">
-                    <label>ホストPIN (4桁)</label>
-                    <input type="text" class="input" id="resumePin" placeholder="XXXX" maxlength="4" pattern="[0-9]{4}">
-                </div>
-                <div class="control-buttons mt-lg">
-                    <button class="btn btn-secondary" id="backToChoiceBtn2">戻る</button>
-                    <button class="btn btn-primary" id="resumeRoomBtn">再開する</button>
-                </div>
-            </div>
-
-            <!-- ルーム作成後 -->
-            <div id="roomCreatedSection" class="hidden">
-                <p class="text-secondary mb-md" id="roomCreatedMsg">ルームが作成されました！</p>
-
-                <div class="room-code" id="displayRoomCode"></div>
-
-                <div class="mt-lg">
-                    <p class="text-muted mb-sm">参加URL</p>
-                    <input type="text" class="input" id="shareUrl" readonly style="text-align: center;">
-                    <button class="btn btn-small btn-secondary mt-sm" id="copyUrlBtn">
-                        📋 コピー
-                    </button>
+                    <div class="control-buttons" style="flex-direction: column; gap: 16px;">
+                        <button class="btn btn-primary btn-large" id="showCreateBtn" style="width: 100%;">
+                            📝 新しくルームを作る
+                        </button>
+                        <button class="btn btn-secondary btn-large" id="showResumeBtn" style="width: 100%;">
+                            🔄 ルームを再開する
+                        </button>
+                        <button class="btn btn-secondary" onclick="location.href='index.html'" style="width: 100%;">
+                            🏠 TOPへ戻る
+                        </button>
+                    </div>
                 </div>
 
-                <div class="mt-lg" id="pinDisplaySection">
-                    <p class="text-muted mb-sm">ホストPIN（メモしてください）</p>
-                    <div class="room-code" id="displayPin" style="font-size: 2rem;"></div>
+                <!-- ルーム作成前 -->
+                <div id="createSection" class="hidden">
+                    <h3 class="mb-md">新規ルーム作成</h3>
+                    <p class="text-secondary mb-lg">新しい6桁のルームコードを発行します</p>
+                    <div class="control-buttons">
+                        <button class="btn btn-secondary" id="backToChoiceBtn1">戻る</button>
+                        <button class="btn btn-primary" id="createRoomBtn">ルームを作成</button>
+                    </div>
                 </div>
 
-                <!-- 戻るボタン追加 -->
-                <div class="mt-md text-left">
-                    <button class="btn btn-small btn-secondary" id="backToChoiceFromCreated">戻る</button>
+                <!-- ルーム再開 -->
+                <div id="resumeSection" class="hidden">
+                    <h3 class="mb-md">ルーム再開</h3>
+                    <div class="input-group text-left" style="margin-bottom: 16px;">
+                        <label>ルームコード (6桁)</label>
+                        <input type="text" class="input" id="resumeRoomCode" placeholder="123456" maxlength="6"
+                            pattern="[0-9]{6}">
+                    </div>
+                    <div class="input-group text-left">
+                        <label>ホストPIN (4桁)</label>
+                        <input type="text" class="input" id="resumePin" placeholder="XXXX" maxlength="4"
+                            pattern="[0-9]{4}">
+                    </div>
+                    <div class="control-buttons mt-lg">
+                        <button class="btn btn-secondary" id="backToChoiceBtn2">戻る</button>
+                        <button class="btn btn-primary" id="resumeRoomBtn">再開する</button>
+                    </div>
                 </div>
 
-                <div class="mt-lg">
-                    <button class="btn btn-primary btn-large" id="autoJoinBtn">
-                        🚀 ホストとして開始
-                    </button>
-                    <button class="btn btn-secondary mt-md" id="settingsTogglePre" style="width: 100%;">
-                        ⚙️ ルール設定
-                    </button>
+                <!-- ルーム作成後 -->
+                <div id="roomCreatedSection" class="hidden">
+                    <p class="text-secondary mb-md" id="roomCreatedMsg">ルームが作成されました！</p>
+
+                    <div class="room-code" id="displayRoomCode"></div>
+
+                    <div class="mt-lg">
+                        <p class="text-muted mb-sm">参加URL</p>
+                        <div id="qrcode" style="display: flex; justify-content: center; margin-bottom: 20px;"></div>
+                        <input type="text" class="input" id="shareUrl" readonly style="text-align: center;">
+                        <button class="btn btn-small btn-secondary mt-sm" id="copyUrlBtn">
+                            📋 コピー
+                        </button>
+                    </div>
+
+                    <div class="mt-lg" id="pinDisplaySection">
+                        <p class="text-muted mb-sm">ホストPIN（メモしてください）</p>
+                        <div class="room-code" id="displayPin" style="font-size: 2rem;"></div>
+                    </div>
+
+                    <!-- 戻るボタン追加 -->
+                    <div class="mt-md text-left">
+                        <button class="btn btn-small btn-secondary" id="backToChoiceFromCreated">戻る</button>
+                    </div>
+
+                    <div class="mt-lg">
+                        <button class="btn btn-primary btn-large" id="autoJoinBtn">
+                            🚀 ホストとして開始
+                        </button>
+                        <button class="btn btn-secondary mt-md" id="settingsTogglePre" style="width: 100%;">
+                            ⚙️ ルール設定
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
     </div>
 
     <!-- メイン画面 -->
@@ -447,6 +459,14 @@
 
                     const shareUrl = `${window.location.origin}${window.location.pathname.replace('host.html', '')}player.html?room=${roomCode}`;
                     document.getElementById('shareUrl').value = shareUrl;
+
+                    // QRコード生成
+                    document.getElementById('qrcode').innerHTML = '';
+                    new QRCode(document.getElementById('qrcode'), {
+                        text: shareUrl,
+                        width: 180,
+                        height: 180
+                    });
 
                     // PIN表示
                     document.getElementById('roomCreatedMsg').style.display = 'block';
@@ -667,20 +687,49 @@
                 if (finalRankingSection) finalRankingSection.classList.add('hidden');
 
                 // Openボタン文言 & 表示制御
-                // OPEN中はボタン不要
-                if (room.roomState === 'OPEN') {
-                    openBtn.classList.add('hidden');
+                // ルール:
+                // 1. OPEN中は非表示 (回答受付中だから)
+                // 2. LOCKEDで正解者(winner)がいる場合は非表示 (次へ進むべきだから)
+                // 3. LOCKEDで正解者がおらず、ペナルティ中の人がいる場合は表示 (全員解除のため)
+                // 4. WAITINGは表示 (スタート用)
+
+                let showOpenBtn = false;
+                const pVals = Object.values(room.players || {});
+                const hasPenalty = pVals.some(p =>
+                    p.playerState === 'LOCKED_PENALTY_THIS' || p.playerState === 'LOCKED_PENALTY_NEXT'
+                );
+
+                if (room.roomState === 'WAITING') {
+                    showOpenBtn = true;
+                } else if (room.roomState === 'LOCKED') {
+                    if (room.winner) {
+                        showOpenBtn = false;
+                    } else if (hasPenalty) {
+                        showOpenBtn = true;
+                    } else {
+                        showOpenBtn = true;
+                    }
                 } else {
+                    showOpenBtn = false;
+                }
+
+                if (showOpenBtn) {
                     openBtn.classList.remove('hidden');
+                } else {
+                    openBtn.classList.add('hidden');
                 }
 
                 const isFirstWait = (rNum === 1) && room.roomState === 'WAITING' && !room.openTimestamp;
                 if (isFirstWait) {
                     openBtn.textContent = '🚀 クイズスタート！';
                     waitingDisplay.innerHTML = '<p class="text-secondary" style="font-size: 1.2rem;">参加者が揃ったら、「クイズスタート」をタップ！</p>';
-                } else {
+                } else if (room.winner) {
+                    waitingDisplay.innerHTML = '<p class="text-accent" style="font-size: 1.2rem;">正解！「次へ」を押してください</p>';
+                } else if (showOpenBtn) {
                     openBtn.textContent = '🔓 全員ペナルティ解除';
                     waitingDisplay.innerHTML = '<p class="text-secondary" style="font-size: 1.2rem;">「回答再開」を押してください</p>';
+                } else {
+                    waitingDisplay.innerHTML = '';
                 }
 
                 // Nextボタン制御
@@ -784,8 +833,15 @@
                 wrong: new Audio('./sounds/wrong.mp3'),
                 open: new Audio('./sounds/open.mp3'),
                 buzz: new Audio('./sounds/buzz.mp3'),
-                end: new Audio('./sounds/end.mp3') // 追加
+                end: new Audio('./sounds/end.mp3'),
+                end2: new Audio('./sounds/end2.mp3') // 追加
             };
+
+            // 連続再生設定
+            sounds.end.addEventListener('ended', () => {
+                sounds.end2.currentTime = 0;
+                sounds.end2.play().catch(e => console.log('end2 play error:', e));
+            });
 
             function playSound(type) {
                 const audio = sounds[type];
@@ -794,6 +850,15 @@
                     audio.play().catch(e => console.log('Sound play error:', e));
                 }
             }
+
+            // 離脱防止
+            window.addEventListener('beforeunload', (e) => {
+                // メイン画面（ホスト中）の場合のみ警告
+                if (!mainScreen.classList.contains('hidden')) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
         });
     </script>
 </body>

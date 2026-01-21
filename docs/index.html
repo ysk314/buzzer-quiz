@@ -148,6 +148,16 @@
 
                 window.location.href = `player.html?room=${roomCode}`;
             });
+
+            // Version
+            const vEl = document.createElement('div');
+            vEl.style.position = 'fixed';
+            vEl.style.bottom = '10px';
+            vEl.style.right = '10px';
+            vEl.style.color = 'rgba(255,255,255,0.3)';
+            vEl.style.fontSize = '0.8rem';
+            vEl.textContent = 'v1.2.0';
+            document.body.appendChild(vEl);
         });
     </script>
 </body>
