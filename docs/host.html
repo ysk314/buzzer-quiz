@@ -246,7 +246,7 @@
             </div>
             <!-- Version display moved inside card -->
             <div class="mt-lg text-muted" style="font-size: 0.8rem;">
-                Buzzer Quiz App v1.2.4
+                Buzzer Quiz App v1.2.5
             </div>
         </div> <!-- card end -->
     </div> <!-- setupScreen end -->
@@ -575,10 +575,9 @@
                 playSound('wrong');
                 await roomManager.judge('wrong');
 
-                // 自動再開: 0.5秒後にOpen (音なし)
+                // 自動再開: 0.5秒後にOpen (ペナルティ維持)
                 setTimeout(async () => {
-                    // playSound('open'); // 効果音調整
-                    await roomManager.openBuzz();
+                    await roomManager.openBuzz(false); // forceClearPenalty=false
                 }, 500);
             });
 

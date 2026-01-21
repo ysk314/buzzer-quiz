@@ -15,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // アプリバージョン
-const APP_VERSION = 'v1.2.4'; // v1.2.4に更新
+const APP_VERSION = 'v1.2.5'; // v1.2.5に更新
 window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -178,7 +178,7 @@ class RoomManager {
     }
 
     // 早押し解放
-    async openBuzz() {
+    async openBuzz(forceClearPenalty = true) {
         await this.roomRef.update({
             roomState: 'OPEN',
             canAdvance: false,
@@ -187,16 +187,23 @@ class RoomManager {
             buzzQueue: null
         });
 
-        // 全プレイヤーをREADYに
         const playersSnapshot = await this.roomRef.child('players').once('value');
         const players = playersSnapshot.val() || {};
         const updates = {};
 
         for (const token in players) {
-            // 全員解除 / 回答再開
-            // 手動での「回答再開」はペナルティも含めてクリアする（ユーザー要望）
-            updates[`players/${token}/playerState`] = 'READY';
-            updates[`players/${token}/penaltyNextRound`] = null;
+            const p = players[token];
+            if (forceClearPenalty) {
+                // 全員解除 / 手動ボタン
+                updates[`players/${token}/playerState`] = 'READY';
+                updates[`players/${token}/penaltyNextRound`] = null;
+            } else {
+                // ペナルティ維持 / 自動再開などの場合
+                // LOCKED_PENALTY_THIS 以外の、回答済み(PRESSED)や先着落ち(LOCKED_LOST)をREADYに戻す
+                if (p.playerState === 'PRESSED' || p.playerState === 'LOCKED_LOST') {
+                    updates[`players/${token}/playerState`] = 'READY';
+                }
+            }
         }
 
         if (Object.keys(updates).length > 0) {
@@ -299,67 +306,58 @@ class RoomManager {
                 updates[`players/${winnerToken}/penaltyNextRound`] = true;
             }
 
-            // 誤答時は自動的に回答可能状態へ
-            updates['roomState'] = 'OPEN';
-            updates['openTimestamp'] = firebase.database.ServerValue.TIMESTAMP;
+            // 誤答時は状態をLOCKED（回答者なし）にして、ホスト側の自動再開を待つ
+            updates['roomState'] = 'LOCKED';
             updates['winner'] = null;
-
-            for (const t in room.players) {
-                if (t !== winnerToken) {
-                    const p = room.players[t];
-                    if (p.playerState === 'LOCKED_LOST' || p.playerState === 'PRESSED') {
-                        updates[`players/${t}/playerState`] = 'READY';
-                    }
-                }
-            }
         }
+    }
 
         await this.roomRef.update(updates);
-        return { success: true, result };
+return { success: true, result };
     }
 
     // 次のラウンド
     async nextRound() {
-        const roomSnapshot = await this.roomRef.once('value');
-        const room = roomSnapshot.val();
+    const roomSnapshot = await this.roomRef.once('value');
+    const room = roomSnapshot.val();
 
-        const updates = {
-            roundNumber: (room.roundNumber || 1) + 1,
-            roomState: 'OPEN',
-            canAdvance: false,
-            openTimestamp: firebase.database.ServerValue.TIMESTAMP,
-            winner: null
-        };
+    const updates = {
+        roundNumber: (room.roundNumber || 1) + 1,
+        roomState: 'OPEN',
+        canAdvance: false,
+        openTimestamp: firebase.database.ServerValue.TIMESTAMP,
+        winner: null
+    };
 
-        for (const t in room.players) {
-            updates[`players/${t}/playerState`] = 'READY';
-        }
-
-        await this.roomRef.update(updates);
-        return { success: true, roundNumber: updates.roundNumber };
+    for (const t in room.players) {
+        updates[`players/${t}/playerState`] = 'READY';
     }
+
+    await this.roomRef.update(updates);
+    return { success: true, roundNumber: updates.roundNumber };
+}
 
     // ルール更新
     async updateRules(newRules) {
-        await this.roomRef.child('rules').update(newRules);
-    }
+    await this.roomRef.child('rules').update(newRules);
+}
 
     // ゲーム終了
     async finishGame() {
-        await this.roomRef.update({
-            roomState: 'FINISHED',
-            canAdvance: false,
-            winner: null
-        });
-    }
+    await this.roomRef.update({
+        roomState: 'FINISHED',
+        canAdvance: false,
+        winner: null
+    });
+}
 
-    // クリーンアップ
-    cleanup() {
-        this.listeners.forEach(({ ref, event, listener }) => {
-            ref.off(event, listener);
-        });
-        this.listeners = [];
-    }
+// クリーンアップ
+cleanup() {
+    this.listeners.forEach(({ ref, event, listener }) => {
+        ref.off(event, listener);
+    });
+    this.listeners = [];
+}
 }
 
 // グローバルインスタンス
