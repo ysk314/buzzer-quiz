@@ -317,50 +317,51 @@
                 } catch (error) {
                     alert('ルームが見つかりません');
                 }
-            });
-
-            function showNameSelection() {
-                roomCodeSection.classList.add('hidden');
-                nameSection.classList.remove('hidden');
-                generateNameOptions();
-            }
-
-            function generateNameOptions() {
-                const options = [];
-                for (let i = 0; i < 5; i++) {
-                    const modifier = namesData.modifiers[Math.floor(Math.random() * namesData.modifiers.length)];
-                    const character = namesData.characters[Math.floor(Math.random() * namesData.characters.length)];
-                    options.push(modifier + character);
-                }
-
-                const nameOptionsEl = document.getElementById('nameOptions');
-                nameOptionsEl.innerHTML = options.map(name => `
-                    <button class="name-option" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>
-                `).join('');
-
-                nameOptionsEl.querySelectorAll('.name-option').forEach(btn => {
-                    btn.addEventListener('click', () => selectName(btn.dataset.name));
                 });
-            }
 
-            document.getElementById('shuffleNamesBtn').addEventListener('click', generateNameOptions);
-
-            async function selectName(name) {
-                if (!confirm(`「${name}」でよろしいですか？`)) return;
-
-                displayName = name;
-                playerToken = generateToken();
-
-                try {
-                    const player = await roomManager.addPlayer(playerToken, displayName);
-                    displayName = player.displayName;
-                    myScore = player.score || 0;
-                    localStorage.setItem('buzzer_player_token', playerToken);
-                    enterGame();
-                } catch (error) {
-                    alert('参加に失敗しました');
+                function showNameSelection() {
+                    roomCodeSection.classList.add('hidden');
+                    nameSection.classList.remove('hidden');
+                    generateNameOptions();
                 }
-            }
+
+                function generateNameOptions() {
+                    const options = [];
+                    for (let i = 0; i < 5; i++) {
+                        const modifier = namesData.modifiers[Math.floor(Math.random() * namesData.modifiers.length)];
+                        const character = namesData.characters[Math.floor(Math.random() * namesData.characters.length)];
+                        options.push(modifier + character);
+                    }
+
+                    const nameOptionsEl = document.getElementById('nameOptions');
+                    nameOptionsEl.innerHTML = options.map(name => `
+                        <button class="name-option" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>
+                    `).join('');
+
+                    nameOptionsEl.querySelectorAll('.name-option').forEach(btn => {
+                        btn.addEventListener('click', () => selectName(btn.dataset.name));
+                    });
+                }
+
+                document.getElementById('shuffleNamesBtn').addEventListener('click', generateNameOptions);
+
+                async function selectName(name) {
+                    if (!confirm(`「${name}」でよろしいですか？`)) return;
+
+                    displayName = name;
+                    playerToken = generateToken();
+
+                    try {
+                        const player = await roomManager.addPlayer(playerToken, displayName);
+                        displayName = player.displayName;
+                        myScore = player.score || 0;
+                        localStorage.setItem('buzzer_player_token', playerToken);
+                        enterGame();
+                    } catch (error) {
+                        alert('参加に失敗しました');
+                    }
+                }
+            };
 
             // setupRoomManager() を呼び出して、roomManager が定義されたらイベントリスナーを設定する
             setupRoomManager();
