@@ -459,47 +459,52 @@
 
             document.getElementById('createRoomBtn').addEventListener('click', async () => {
                 try {
-                    const result = await roomManager.createRoom();
-                    roomCode = result.roomCode;
+                    // Socket.io でルーム作成
+                    socket.emit('createRoom', (result) => {
+                        roomCode = result.roomCode;
+                        const pin = result.pin;
 
-                    document.getElementById('displayRoomCode').textContent = roomCode;
-                    document.getElementById('displayPin').textContent = result.pin;
+                        document.getElementById('displayRoomCode').textContent = roomCode;
+                        document.getElementById('displayPin').textContent = pin;
 
-                    // URL更新
-                    const newUrl = `${window.location.pathname}?room=${roomCode}`;
-                    window.history.pushState({ path: newUrl }, '', newUrl);
+                        // URL更新
+                        const newUrl = `${window.location.pathname}?room=${roomCode}`;
+                        window.history.pushState({ path: newUrl }, '', newUrl);
 
-                    const shareUrl = `${window.location.origin}${window.location.pathname.replace('host.html', '')}player.html?room=${roomCode}`;
-                    document.getElementById('shareUrl').value = shareUrl;
+                        const shareUrl = `${window.location.origin}${window.location.pathname.replace('host.html', '')}player.html?room=${roomCode}`;
+                        document.getElementById('shareUrl').value = shareUrl;
 
-                    // QRコード生成
-                    document.getElementById('qrcode').innerHTML = '';
-                    new QRCode(document.getElementById('qrcode'), {
-                        text: shareUrl,
-                        width: 180,
-                        height: 180
-                    });
+                        // QRコード生成
+                        QRCode.toCanvas(document.getElementById('qrCode'), shareUrl, {
+                            width: 150,
+                            margin: 1,
+                            color: {
+                                dark: '#000000',
+                                light: '#ffffff'
+                            }
+                        });
 
-                    // PIN表示
-                    document.getElementById('roomCreatedMsg').style.display = 'block';
-                    document.getElementById('pinDisplaySection').style.display = 'block';
+                        // PIN表示
+                        document.getElementById('roomCreatedMsg').style.display = 'block';
+                        document.getElementById('pinDisplaySection').style.display = 'block';
 
-                    // 自動参加ボタン
-                    document.getElementById('autoJoinBtn').onclick = async () => {
-                        await enterHostMode(roomCode, result.pin);
-                    };
+                        // 自動参加ボタン
+                        document.getElementById('autoJoinBtn').onclick = async () => {
+                            await enterHostMode(roomCode, pin);
+                        };
 
-                    createSection.classList.add('hidden');
-                    roomCreatedSection.classList.remove('hidden');
-
-                    // 戻るボタン (Generated Screen)
-                    document.getElementById('backToChoiceFromCreated').onclick = () => {
-                        roomCreatedSection.classList.add('hidden');
-                        setupScreen.classList.remove('hidden');
-                        // ルーム作成フローに戻るなら: setupScreen > choiceSection表示へ
-                        choiceSection.classList.remove('hidden');
                         createSection.classList.add('hidden');
-                    };
+                        roomCreatedSection.classList.remove('hidden');
+
+                        // 戻るボタン (Generated Screen)
+                        document.getElementById('backToChoiceFromCreated').onclick = () => {
+                            roomCreatedSection.classList.add('hidden');
+                            setupScreen.classList.remove('hidden');
+                            // ルーム作成フローに戻るなら: setupScreen > choiceSection表示へ
+                            choiceSection.classList.remove('hidden');
+                            createSection.classList.add('hidden');
+                        };
+                    });
 
                 } catch (error) {
                     alert('ルーム作成に失敗しました: ' + error.message);
@@ -511,10 +516,21 @@
                     await roomManager.joinRoom(code); // RoomRef初期化のために必須
                     const valid = await roomManager.verifyPin(code, pin);
                     if (valid) {
+                        // Socket.io でもホスト認証
+                        socket.emit('hostAuth', { roomCode: code, pin }, (result) => {
+                            if (!result.success) {
+                                console.error('Socket.io hostAuth failed:', result.error);
+                                alert('Socket.io認証に失敗しました');
+                                return;
+                            }
+                            console.log('✅ Socket.io hostAuth success');
+                        });
+
                         setupScreen.classList.add('hidden');
                         mainScreen.classList.remove('hidden');
                         document.getElementById('headerRoomCode').textContent = code;
                         document.getElementById('headerPin').textContent = pin;
+                        roomCode = code;
 
                         // 戻るボタン (Main Screen)
                         document.getElementById('backToSetupBtn').onclick = () => {
