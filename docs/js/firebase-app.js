@@ -15,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // アプリバージョン
-const APP_VERSION = 'v1.2.7'; // v1.2.7に更新
+const APP_VERSION = 'v1.2.8'; // v1.2.8に更新
 window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -356,12 +356,22 @@ class RoomManager {
         const roomSnapshot = await this.roomRef.once('value');
         const room = roomSnapshot.val();
 
+        // バックアップ（Undo用）
+        const backup = {
+            players: room.players,
+            roomState: room.roomState,
+            roundNumber: room.roundNumber,
+            winner: room.winner,
+            canAdvance: room.canAdvance || false
+        };
+
         const updates = {
             roundNumber: (room.roundNumber || 1) + 1,
             roomState: 'OPEN',
             canAdvance: false,
             openTimestamp: firebase.database.ServerValue.TIMESTAMP,
-            winner: null
+            winner: null,
+            backup: backup
         };
 
         for (const t in room.players) {
