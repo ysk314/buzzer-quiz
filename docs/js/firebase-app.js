@@ -15,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // アプリバージョン
-const APP_VERSION = 'v1.4.3'; // v1.4.3に更新（openBtnテキスト動的変更）
+const APP_VERSION = 'v1.5.0'; // v1.5.0に更新（UX改善）
 window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {

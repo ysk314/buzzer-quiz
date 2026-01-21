@@ -220,7 +220,7 @@
 
         <div class="buzzer-area">
             <h2 class="hidden" id="finishText"
-                style="color: var(--accent-cyan); font-size: 2.5rem; margin-bottom: 20px;">クイズ終了！</h2>
+                style="color: var(--accent-cyan); font-size: 2.5rem; margin-bottom: 20px;">お疲れ様でした！</h2>
             <div class="status-text" id="statusText">接続中...</div>
             <button class="buzzer-btn" id="buzzerBtn" disabled>
                 <span id="buzzerText">PUSH!</span>
@@ -497,6 +497,7 @@
                     case 'FINISHED':
                         statusText.textContent = ''; // テキスト非表示
                         buzzerBtn.disabled = true;
+                        buzzerBtn.classList.add('hidden'); // ボタンを非表示
                         // ランキングがメインになるのでここはシンプルに
                         break;
                 }

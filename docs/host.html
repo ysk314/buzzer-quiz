@@ -709,7 +709,8 @@
 
                 if (room.roomState === 'WAITING') {
                     // 正解(winner)が出た後は canAdvance=true。その間はボタン不要（ユーザー要望）
-                    showOpenBtn = !room.canAdvance;
+                    // ただし、ペナルティが残っている場合は表示（解除のため）
+                    showOpenBtn = !room.canAdvance || hasPenalty;
                 } else if (room.roomState === 'LOCKED') {
                     if (room.winner) {
                         showOpenBtn = false;
