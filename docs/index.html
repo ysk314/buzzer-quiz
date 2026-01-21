@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="教室で使える早押しクイズアプリ - リアルタイムで盛り上がろう！">
+    <title>🎯 早押しクイズ</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .landing-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .logo {
+            font-size: clamp(4rem, 10vw, 8rem);
+            margin-bottom: 0;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .tagline {
+            font-size: clamp(1rem, 2vw, 1.3rem);
+            color: var(--text-secondary);
+            margin-bottom: 48px;
+            text-align: center;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .action-btn {
+            padding: 28px 48px;
+            font-size: 1.3rem;
+        }
+
+        .action-btn .emoji {
+            font-size: 1.5rem;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+            max-width: 400px;
+            margin: 24px 0;
+            color: var(--text-muted);
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .join-form {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .room-input {
+            font-size: 1.5rem;
+            text-align: center;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="landing-container">
+        <div class="logo">🎯</div>
+        <h1>早押しクイズ</h1>
+        <p class="tagline">みんなで盛り上がろう！リアルタイム早押しバトル</p>
+
+        <div class="action-buttons">
+            <a href="host.html" class="btn btn-primary action-btn">
+                <span class="emoji">👑</span>
+                ルームを作る/再開（Host）
+            </a>
+
+            <div class="divider">または</div>
+
+            <form class="join-form" id="joinForm">
+                <div class="input-group">
+                    <input type="text" class="input room-input" id="roomCodeInput" placeholder="ROOM-CODE" maxlength="6"
+                        pattern="[A-Za-z0-9]{6}" autocomplete="off" autocapitalize="characters">
+                </div>
+                <button type="submit" class="btn btn-secondary action-btn" style="width: 100%;">
+                    <span class="emoji">🎮</span>
+                    ルームに参加する（Player）
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const joinForm = document.getElementById('joinForm');
+            const roomCodeInput = document.getElementById('roomCodeInput');
+
+            // URLパラメータからルームコードを取得
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomFromUrl = urlParams.get('room');
+            if (roomFromUrl) {
+                roomCodeInput.value = roomFromUrl.toUpperCase();
+            }
+
+            // 入力時に大文字変換
+            roomCodeInput.addEventListener('input', (e) => {
+                e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            });
+
+            // 参加フォーム送信
+            joinForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const roomCode = roomCodeInput.value.trim().toUpperCase();
+
+                if (roomCode.length !== 6) {
+                    alert('ルームコードは6文字です');
+                    return;
+                }
+
+                window.location.href = `player.html?room=${roomCode}`;
+            });
+        });
+    </script>
+</body>
+
+</html>

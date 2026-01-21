@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🎯 早押しクイズ - プレイヤー</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        .player-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+        }
+
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .my-name {
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        .my-score {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--accent-cyan);
+        }
+
+        .buzzer-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 50vh;
+        }
+
+        .status-text {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+            text-align: center;
+            min-height: 40px;
+        }
+
+        .status-waiting {
+            color: var(--text-secondary);
+        }
+
+        .status-open {
+            color: var(--accent-cyan);
+            animation: blink 0.5s ease infinite;
+        }
+
+        .status-pressed {
+            color: var(--accent-yellow);
+        }
+
+        .status-winner {
+            color: var(--accent-green);
+        }
+
+        .status-locked {
+            color: var(--accent-red);
+        }
+
+        .bottom-section {
+            margin-top: auto;
+        }
+
+        .ranking-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            padding: 16px;
+        }
+
+        .ranking-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .round-badge {
+            background: var(--accent-purple);
+            padding: 4px 12px;
+            border-radius: var(--radius-full);
+            font-weight: 600;
+        }
+
+        .join-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .join-card {
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .result-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .result-overlay.active {
+            display: flex;
+        }
+
+        .result-content {
+            text-align: center;
+            animation: resultPop 0.5s ease;
+        }
+
+        @keyframes resultPop {
+            from {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .result-icon {
+            font-size: 8rem;
+            margin-bottom: 16px;
+        }
+
+        .result-text {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 参加画面 -->
+    <div id="joinScreen" class="join-screen">
+        <div class="card join-card text-center">
+            <h1>🎮 参加</h1>
+
+            <div id="roomCodeSection">
+                <p class="text-secondary mb-md">ルームコードを入力してください</p>
+                <div class="input-group">
+                    <input type="text" class="input" id="roomCodeInput" placeholder="ROOM-CODE" maxlength="6"
+                        style="text-align: center; font-size: 1.5rem; letter-spacing: 8px; text-transform: uppercase;">
+                </div>
+                <button class="btn btn-primary" id="checkRoomBtn">ルームを確認</button>
+            </div>
+
+            <div id="nameSection" class="hidden">
+                <p class="text-secondary mb-md">名前を選んでください</p>
+                <div id="nameOptions" class="name-options"></div>
+                <button class="btn btn-secondary mt-md" id="shuffleNamesBtn">
+                    🔄 他の名前を見る
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- プレイヤーメイン画面 -->
+    <div id="mainScreen" class="player-container hidden">
+        <header class="player-header">
+            <div class="player-info" style="display: flex; align-items: center; gap: 8px;">
+                <button id="exitBtn" class="btn btn-small btn-secondary">←</button>
+                <span class="my-name" id="myName">---</span>
+            </div>
+            <div class="my-score"><span id="myScore">0</span>pt</div>
+        </header>
+
+        <div class="buzzer-area">
+            <div class="status-text" id="statusText">接続中...</div>
+            <button class="buzzer-btn" id="buzzerBtn" disabled>
+                <span id="buzzerText">PUSH!</span>
+            </button>
+        </div>
+
+        <div class="bottom-section">
+            <div class="ranking-card">
+                <div class="ranking-header">
+                    <h3>🏆 ランキング</h3>
+                    <span class="round-badge">第<span id="roundNumber">1</span>問</span>
+                </div>
+                <ul class="ranking-list" id="rankingList">
+                    <li class="text-muted">ランキング読み込み中...</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 結果オーバーレイ -->
+    <div id="resultOverlay" class="result-overlay">
+        <div class="result-content" id="resultContent">
+            <div class="result-icon" id="resultIcon">⭕</div>
+            <div class="result-text" id="resultText">正解！</div>
+        </div>
+    </div>
+
+    <script src="js/firebase-app.js"></script>
+    <script>
+        // 名前候補データ
+        const namesData = {
+            modifiers: ["伝説の", "闇より出でし", "世界を救う", "レベル99の", "覚醒した", "銀河最強の", "封印されし", "1000年に一人の", "奇跡の", "暴走する", "神に選ばれた", "漆黒の翼を持つ", "全宇宙の", "最終形態の", "必殺技を放つ", "限界突破した", "音速の", "時をかける", "未来から来た", "謎の組織の", "炎をまとう", "氷の心を持つ", "無敵の", "黄金の", "復讐を誓う", "永遠の", "幻の", "覇王色の", "残像が見える", "スーパー", "メガ進化", "巨大化した", "地獄からの使者", "空を飛ぶ", "透明人間の", "鋼鉄の", "宿題を忘れた", "給食当番の", "廊下に立たされた", "テスト0点の", "テスト100点の", "夏休み中の", "居残りさせられた", "放送委員の", "図書室の主", "保健室で寝ている", "運動会で転んだ", "紅白帽をかぶった", "上履きを忘れた", "プールが見学の", "校長先生の", "遠足のおやつを持った", "クラスの人気者", "学級委員長", "生徒会長", "部活をサボった", "先生に怒られた", "寝坊した", "寝癖がひどい", "ゲーム禁止中の", "スマホ没収された", "Wi-Fiを探している", "筋肉痛の", "自称イケメンの", "すぐ泣く", "方向音痴の", "音痴な", "野生の", "ペットの", "猫耳の", "ゴリラっぽい", "AI搭載の", "YouTuberの", "プロゲーマー", "課金勢の", "正義の", "悪の", "近所の", "謎の", "初代", "元祖", "ニセモノの", "量産型", "キラキラの", "日本代表", "世界ランク1位の", "指名手配中の", "脱走中の", "宇宙人"],
+            characters: ["織田信長", "豊臣秀吉", "徳川家康", "坂本龍馬", "西郷隆盛", "聖徳太子", "卑弥呼", "源頼朝", "源義経", "武田信玄", "上杉謙信", "伊達政宗", "真田幸村", "千利休", "松尾芭蕉", "紫式部", "清少納言", "福沢諭吉", "野口英世", "夏目漱石", "宮沢賢治", "土方歳三", "服部半蔵", "葛飾北斎", "一休さん", "水戸黄門", "ナポレオン", "エジソン", "アインシュタイン", "ニュートン", "ベートーヴェン", "モーツァルト", "諸葛孔明", "クレオパトラ", "リンカーン", "ガンジー", "コロンブス", "キュリー夫人", "レオナルド・ダ・ヴィンチ", "ピカソ", "ゴッホ", "ダーウィン", "ジャンヌ・ダルク", "ウォルト・ディズニー", "スティーブ・ジョブズ", "ドラえもん", "のび太", "ジャイアン", "スネ夫", "しずかちゃん", "ピカチュウ", "サトシ", "マリオ", "ルイージ", "クッパ", "星のカービィ", "アンパンマン", "バイキンマン", "孫悟空", "ベジータ", "フリーザ", "ルフィ", "ゾロ", "ナミ", "チョッパー", "江戸川コナン", "怪盗キッド", "野原しんのすけ", "両津勘吉", "セーラームーン", "竈門炭治郎", "竈門禰豆子", "我妻善逸", "煉獄杏寿郎", "五条悟", "アーニャ", "ケンシロウ", "筋肉マン", "ゴジラ", "桃太郎", "浦島太郎", "金太郎", "かぐや姫", "シンデレラ", "白雪姫", "アリス", "ピーターパン", "となりのトトロ", "千尋", "カオナシ", "ナウシカ", "キキ", "ハローキティ", "ミッキーマウス", "スヌーピー", "初音ミク", "ヒカキン"]
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            let roomCode = null;
+            let playerToken = localStorage.getItem('buzzer_player_token');
+            let displayName = null;
+            let myScore = 0;
+            let playerState = 'READY';
+            let roomState = 'WAITING';
+            let prevScore = 0;
+            let wasWinner = false;
+
+            const joinScreen = document.getElementById('joinScreen');
+            const mainScreen = document.getElementById('mainScreen');
+            const roomCodeSection = document.getElementById('roomCodeSection');
+            const nameSection = document.getElementById('nameSection');
+            const roomCodeInput = document.getElementById('roomCodeInput');
+            const buzzerBtn = document.getElementById('buzzerBtn');
+
+            // URLからルームコード取得
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomFromUrl = urlParams.get('room');
+            if (roomFromUrl) {
+                roomCodeInput.value = roomFromUrl.toUpperCase();
+            }
+
+            roomCodeInput.addEventListener('input', (e) => {
+                e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            });
+
+            // ルーム確認
+            document.getElementById('checkRoomBtn').addEventListener('click', async () => {
+                roomCode = roomCodeInput.value.trim().toUpperCase();
+
+                if (roomCode.length !== 6) {
+                    alert('ルームコードは6文字です');
+                    return;
+                }
+
+                try {
+                    const roomData = await roomManager.joinRoom(roomCode);
+
+                    if (playerToken && roomData.players && roomData.players[playerToken]) {
+                        // 既存プレイヤーとして再接続
+                        const player = await roomManager.addPlayer(playerToken, roomData.players[playerToken].displayName);
+                        displayName = player.displayName;
+                        myScore = player.score || 0;
+                        enterGame();
+                        return;
+                    }
+
+                    showNameSelection();
+                } catch (error) {
+                    alert('ルームが見つかりません');
+                }
+            });
+
+            function showNameSelection() {
+                roomCodeSection.classList.add('hidden');
+                nameSection.classList.remove('hidden');
+                generateNameOptions();
+            }
+
+            function generateNameOptions() {
+                const options = [];
+                for (let i = 0; i < 5; i++) {
+                    const modifier = namesData.modifiers[Math.floor(Math.random() * namesData.modifiers.length)];
+                    const character = namesData.characters[Math.floor(Math.random() * namesData.characters.length)];
+                    options.push(modifier + character);
+                }
+
+                const nameOptionsEl = document.getElementById('nameOptions');
+                nameOptionsEl.innerHTML = options.map(name => `
+                    <button class="name-option" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>
+                `).join('');
+
+                nameOptionsEl.querySelectorAll('.name-option').forEach(btn => {
+                    btn.addEventListener('click', () => selectName(btn.dataset.name));
+                });
+            }
+
+            document.getElementById('shuffleNamesBtn').addEventListener('click', generateNameOptions);
+
+            async function selectName(name) {
+                displayName = name;
+                playerToken = generateToken();
+
+                try {
+                    const player = await roomManager.addPlayer(playerToken, displayName);
+                    displayName = player.displayName;
+                    myScore = player.score || 0;
+                    localStorage.setItem('buzzer_player_token', playerToken);
+                    enterGame();
+                } catch (error) {
+                    alert('参加に失敗しました');
+                }
+            }
+
+            function enterGame() {
+                joinScreen.classList.add('hidden');
+                mainScreen.classList.remove('hidden');
+
+                document.getElementById('myName').textContent = displayName;
+                document.getElementById('myScore').textContent = myScore;
+
+                // リアルタイム監視開始
+                roomManager.onRoomUpdate((room) => {
+                    if (room) {
+                        updateUI(room);
+                    }
+                });
+
+                // 切断時の処理
+                window.addEventListener('beforeunload', () => {
+                    if (playerToken) {
+                        roomManager.disconnectPlayer(playerToken);
+                    }
+                });
+            }
+
+            // 早押しボタン
+            buzzerBtn.addEventListener('click', async () => {
+                if (buzzerBtn.disabled) return;
+                if (playerState !== 'READY' || roomState !== 'OPEN') return;
+
+                buzzerBtn.classList.add('pressed');
+                playerState = 'PRESSED';
+                updateBuzzerState();
+
+                const result = await roomManager.buzz(playerToken);
+                if (result.success && result.isWinner) {
+                    buzzerBtn.classList.remove('pressed');
+                    buzzerBtn.classList.add('winner');
+                }
+            });
+
+            function updateUI(room) {
+                const prevRoomState = roomState;
+                roomState = room.roomState;
+                document.getElementById('roundNumber').textContent = room.roundNumber || 1;
+
+                const players = room.players || {};
+                const me = players[playerToken];
+
+                if (me) {
+                    // スコア変化をチェック
+                    const newScore = me.score || 0;
+                    if (wasWinner && prevRoomState === 'LOCKED' && roomState === 'WAITING') {
+                        // 判定結果があった
+                        if (newScore > prevScore) {
+                            showResult(true);
+                        } else if (newScore < prevScore || (newScore === prevScore && room.roomState === 'OPEN')) {
+                            showResult(false);
+                        }
+                    }
+
+                    prevScore = myScore;
+                    myScore = newScore;
+                    document.getElementById('myScore').textContent = myScore;
+                    playerState = me.playerState || 'READY';
+                }
+
+                // 勝者チェック
+                wasWinner = room.winner && room.winner.playerToken === playerToken;
+
+                if (roomState === 'OPEN' && prevRoomState !== 'OPEN') {
+                    if (playerState === 'LOCKED_LOST' || playerState === 'PRESSED') {
+                        playerState = 'READY';
+                    }
+                    buzzerBtn.classList.remove('pressed', 'winner', 'locked');
+                } else if (roomState === 'WAITING' && prevRoomState !== 'WAITING') {
+                    playerState = 'READY';
+                    buzzerBtn.classList.remove('pressed', 'winner', 'locked');
+                } else if (roomState === 'LOCKED') {
+                    if (wasWinner) {
+                        buzzerBtn.classList.add('winner');
+                    } else if (playerState === 'READY') {
+                        playerState = 'LOCKED_LOST';
+                        buzzerBtn.classList.add('locked');
+                    }
+                }
+
+                updateBuzzerState();
+                updateRanking(players);
+            }
+
+            function updateBuzzerState() {
+                const statusText = document.getElementById('statusText');
+                const buzzerText = document.getElementById('buzzerText');
+
+                statusText.className = 'status-text';
+
+                switch (roomState) {
+                    case 'WAITING':
+                        statusText.textContent = '待機中...';
+                        statusText.classList.add('status-waiting');
+                        buzzerBtn.disabled = true;
+                        buzzerText.textContent = 'WAIT';
+                        break;
+                    case 'OPEN':
+                        if (playerState === 'READY') {
+                            statusText.textContent = '🔥 早押しスタート！';
+                            statusText.classList.add('status-open');
+                            buzzerBtn.disabled = false;
+                            buzzerText.textContent = 'PUSH!';
+                        } else if (playerState === 'LOCKED_PENALTY_THIS') {
+                            statusText.textContent = 'ペナルティ中...';
+                            statusText.classList.add('status-locked');
+                            buzzerBtn.disabled = true;
+                            buzzerText.textContent = '🚫';
+                        } else {
+                            statusText.textContent = '押しました！';
+                            statusText.classList.add('status-pressed');
+                            buzzerBtn.disabled = true;
+                        }
+                        break;
+                    case 'LOCKED':
+                        if (wasWinner) {
+                            statusText.textContent = '🎉 先着！判定を待っています...';
+                            statusText.classList.add('status-winner');
+                        } else {
+                            statusText.textContent = '他の人が先着しました';
+                            statusText.classList.add('status-locked');
+                        }
+                        buzzerBtn.disabled = true;
+                        break;
+                }
+            }
+
+            function updateRanking(players) {
+                const list = document.getElementById('rankingList');
+                const playerArray = Object.values(players);
+
+                if (playerArray.length === 0) {
+                    list.innerHTML = '<li class="text-muted">まだランキングはありません</li>';
+                    return;
+                }
+
+                const sorted = playerArray.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 5);
+
+                list.innerHTML = sorted.map((p, i) => {
+                    const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+                    const highlight = p.displayName === displayName ? 'highlight' : '';
+
+                    return `
+                        <li class="ranking-item ${highlight}">
+                            <span class="ranking-rank ${rankClass}">${i + 1}</span>
+                            <span class="ranking-name">${escapeHtml(p.displayName)}</span>
+                            <span class="ranking-score">${p.score || 0}pt</span>
+                        </li>
+                    `;
+                }).join('');
+            }
+
+            function showResult(isCorrect) {
+                const overlay = document.getElementById('resultOverlay');
+                const content = document.getElementById('resultContent');
+                const icon = document.getElementById('resultIcon');
+                const text = document.getElementById('resultText');
+
+                if (isCorrect) {
+                    icon.textContent = '⭕';
+                    icon.style.color = 'var(--accent-green)';
+                    text.textContent = '正解！';
+                    text.style.color = 'var(--accent-green)';
+                } else {
+                    icon.textContent = '❌';
+                    icon.style.color = 'var(--accent-red)';
+                    text.textContent = '不正解...';
+                    text.style.color = 'var(--accent-red)';
+                }
+
+                overlay.classList.add('active');
+                setTimeout(() => overlay.classList.remove('active'), 1500);
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            // 退出ボタン
+            document.getElementById('exitBtn').addEventListener('click', () => {
+                if (confirm('本当に退出しますか？')) {
+                    if (playerToken) {
+                        roomManager.disconnectPlayer(playerToken);
+                        localStorage.removeItem('buzzer_player_token');
+                    }
+                    window.location.href = 'index.html';
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🎯 早押しクイズ - ホスト</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        .host-container {
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .room-info {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .info-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .control-center {
+            text-align: center;
+        }
+
+        .control-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 24px;
+        }
+
+        .judge-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        .judge-btn {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            font-size: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .settings-toggle {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 100;
+        }
+
+        .settings-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .settings-overlay.active {
+            display: flex;
+        }
+
+        .settings-modal {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-xl);
+            padding: 32px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .setup-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .setup-card {
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .share-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        @media (max-width: 600px) {
+            .share-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .player-grid {
+            display: grid;
+            gap: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- セットアップ画面 -->
+    <div id="setupScreen" class="setup-screen">
+        <div class="card setup-card text-center">
+            <h1>👑 ホスト設定</h1>
+
+            <!-- 選択画面 -->
+            <div id="choiceSection">
+                <p class="text-secondary mb-lg">クイズルームの設定を選んでください</p>
+                <div class="control-buttons" style="flex-direction: column; gap: 16px;">
+                    <button class="btn btn-primary btn-large" id="showCreateBtn" style="width: 100%;">
+                        📝 新しくルームを作る
+                    </button>
+                    <button class="btn btn-secondary btn-large" id="showResumeBtn" style="width: 100%;">
+                        🔄 ルームを再開する
+                    </button>
+                </div>
+            </div>
+
+            <!-- ルーム作成前 -->
+            <div id="createSection" class="hidden">
+                <h3 class="mb-md">新規ルーム作成</h3>
+                <p class="text-secondary mb-lg">新しい6桁のルームコードを発行します</p>
+                <div class="control-buttons">
+                    <button class="btn btn-secondary" id="backToChoiceBtn1">戻る</button>
+                    <button class="btn btn-primary" id="createRoomBtn">ルームを作成</button>
+                </div>
+            </div>
+
+            <!-- ルーム再開 -->
+            <div id="resumeSection" class="hidden">
+                <h3 class="mb-md">ルーム再開</h3>
+                <div class="input-group text-left" style="margin-bottom: 16px;">
+                    <label>ルームコード (6桁)</label>
+                    <input type="text" class="input" id="resumeRoomCode" placeholder="123456" maxlength="6"
+                        pattern="[0-9]{6}">
+                </div>
+                <div class="input-group text-left">
+                    <label>ホストPIN (4桁)</label>
+                    <input type="text" class="input" id="resumePin" placeholder="XXXX" maxlength="4" pattern="[0-9]{4}">
+                </div>
+                <div class="control-buttons mt-lg">
+                    <button class="btn btn-secondary" id="backToChoiceBtn2">戻る</button>
+                    <button class="btn btn-primary" id="resumeRoomBtn">再開する</button>
+                </div>
+            </div>
+
+            <!-- ルーム作成後 -->
+            <div id="roomCreatedSection" class="hidden">
+                <p class="text-secondary mb-md" id="roomCreatedMsg">ルームが作成されました！</p>
+
+                <div class="room-code" id="displayRoomCode"></div>
+
+                <div class="mt-lg">
+                    <p class="text-muted mb-sm">参加URL</p>
+                    <input type="text" class="input" id="shareUrl" readonly style="text-align: center;">
+                    <button class="btn btn-small btn-secondary mt-sm" id="copyUrlBtn">
+                        📋 コピー
+                    </button>
+                </div>
+
+                <div class="mt-lg" id="pinDisplaySection">
+                    <p class="text-muted mb-sm">ホストPIN（メモしてください）</p>
+                    <div class="room-code" id="displayPin" style="font-size: 2rem;"></div>
+                </div>
+
+                <div class="mt-lg">
+                    <button class="btn btn-primary btn-large" id="autoJoinBtn">
+                        🚀 ホストとして開始
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- メイン画面 -->
+    <div id="mainScreen" class="host-container hidden">
+        <header class="header">
+            <div class="room-info">
+                <div class="info-item">
+                    <span class="info-label">ルーム</span>
+                    <span class="info-value" id="headerRoomCode">---</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">参加者</span>
+                    <span class="info-value"><span id="playerCount">0</span>人</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">ラウンド</span>
+                    <span class="info-value">#<span id="roundNumber">1</span></span>
+                </div>
+                <div id="roomStateBadge" class="badge badge-waiting">WAITING</div>
+            </div>
+            <a href="index.html" class="btn btn-small btn-secondary">戻る</a>
+        </header>
+
+        <div class="main-grid">
+            <div class="card control-center">
+                <h2>コントロール</h2>
+
+                <!-- 先着者表示 -->
+                <div id="winnerDisplay" class="winner-display hidden mt-lg">
+                    <p class="text-muted">先着</p>
+                    <div class="winner-name" id="winnerName">---</div>
+                    <div class="winner-time"><span id="reactionTime">0</span> ms</div>
+                </div>
+
+                <!-- 待機時表示 -->
+                <div id="waitingDisplay" class="mt-lg">
+                    <p class="text-secondary" style="font-size: 1.2rem;">「回答再開」を押して早押しスタート！</p>
+                </div>
+
+                <!-- 判定ボタン -->
+                <div id="judgeButtons" class="judge-buttons hidden">
+                    <button class="btn btn-success judge-btn" id="correctBtn">○</button>
+                    <button class="btn btn-danger judge-btn" id="wrongBtn">×</button>
+                </div>
+
+                <!-- 進行ボタン -->
+                <div class="control-buttons">
+                    <button class="btn btn-primary btn-large" id="openBtn">
+                        🔓 回答再開 (Open)
+                    </button>
+                    <button class="btn btn-secondary" id="nextBtn">
+                        ➡️ 次へ (Next)
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="mb-md">参加者一覧</h3>
+                <div id="playerList" class="player-grid">
+                    <p class="text-muted">参加者を待っています...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 設定ボタン -->
+        <button class="btn btn-icon btn-secondary settings-toggle" id="settingsToggle">
+            ⚙️
+        </button>
+    </div>
+
+    <!-- 設定オーバーレイ -->
+    <div id="settingsOverlay" class="settings-overlay">
+        <div class="settings-modal">
+            <div class="flex-between mb-lg">
+                <h2>⚙️ ルール設定</h2>
+                <button class="btn btn-small btn-secondary" id="closeSettings">✕ 閉じる</button>
+            </div>
+
+            <div class="setting-row">
+                <span class="setting-label">誤答ペナルティ</span>
+                <div class="setting-options">
+                    <button class="setting-option" data-setting="penaltyType" data-value="none">なし</button>
+                    <button class="setting-option active" data-setting="penaltyType"
+                        data-value="thisRound">当問ロック</button>
+                    <button class="setting-option" data-setting="penaltyType" data-value="nextRound">次問もロック</button>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <span class="setting-label">正解加点</span>
+                <div class="setting-options">
+                    <button class="setting-option" data-setting="correctPoints" data-value="0">なし</button>
+                    <button class="setting-option active" data-setting="correctPoints" data-value="1">+1</button>
+                    <button class="setting-option" data-setting="correctPoints" data-value="2">+2</button>
+                    <button class="setting-option" data-setting="correctPoints" data-value="3">+3</button>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <span class="setting-label">誤答減点</span>
+                <div class="setting-options">
+                    <button class="setting-option active" data-setting="wrongPoints" data-value="0">なし</button>
+                    <button class="setting-option" data-setting="wrongPoints" data-value="1">-1</button>
+                    <button class="setting-option" data-setting="wrongPoints" data-value="2">-2</button>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <span class="setting-label">得点下限</span>
+                <div class="setting-options">
+                    <button class="setting-option active" data-setting="allowNegative" data-value="false">0まで</button>
+                    <button class="setting-option" data-setting="allowNegative" data-value="true">マイナスあり</button>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <span class="setting-label">誤答後の処理</span>
+                <div class="setting-options">
+                    <button class="setting-option active" data-setting="wrongAction" data-value="reopen">再解放</button>
+                    <button class="setting-option" data-setting="wrongAction" data-value="nextInQueue">繰り上げ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/firebase-app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let roomCode = null;
+            let currentRules = {};
+            let previousState = null; // 前回のステートを保持
+
+            const setupScreen = document.getElementById('setupScreen');
+            const mainScreen = document.getElementById('mainScreen');
+            const createSection = document.getElementById('createSection');
+            const roomCreatedSection = document.getElementById('roomCreatedSection');
+            const choiceSection = document.getElementById('choiceSection');
+            const resumeSection = document.getElementById('resumeSection');
+
+            // 画面切り替え
+            document.getElementById('showCreateBtn').onclick = () => {
+                choiceSection.classList.add('hidden');
+                createSection.classList.remove('hidden');
+            };
+
+            document.getElementById('showResumeBtn').onclick = () => {
+                choiceSection.classList.add('hidden');
+                resumeSection.classList.remove('hidden');
+            };
+
+            document.getElementById('backToChoiceBtn1').onclick = () => {
+                createSection.classList.add('hidden');
+                choiceSection.classList.remove('hidden');
+            };
+
+            document.getElementById('backToChoiceBtn2').onclick = () => {
+                resumeSection.classList.add('hidden');
+                choiceSection.classList.remove('hidden');
+            };
+
+            // URLパラメータチェック（再開モード）
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomFromUrl = urlParams.get('room');
+
+            if (roomFromUrl) {
+                // URLにルームがある場合は再開モードへ直行
+                choiceSection.classList.add('hidden');
+                resumeSection.classList.remove('hidden');
+                document.getElementById('resumeRoomCode').value = roomFromUrl;
+            }
+
+            document.getElementById('createRoomBtn').addEventListener('click', async () => {
+                try {
+                    const result = await roomManager.createRoom();
+                    roomCode = result.roomCode;
+
+                    document.getElementById('displayRoomCode').textContent = roomCode;
+                    document.getElementById('displayPin').textContent = result.pin;
+
+                    // URL更新
+                    const newUrl = `${window.location.pathname}?room=${roomCode}`;
+                    window.history.pushState({ path: newUrl }, '', newUrl);
+
+                    const shareUrl = `${window.location.origin}${window.location.pathname.replace('host.html', '')}player.html?room=${roomCode}`;
+                    document.getElementById('shareUrl').value = shareUrl;
+
+                    // PIN表示
+                    document.getElementById('roomCreatedMsg').style.display = 'block';
+                    document.getElementById('pinDisplaySection').style.display = 'block';
+
+                    // 自動参加ボタン
+                    document.getElementById('autoJoinBtn').onclick = async () => {
+                        await enterHostMode(roomCode, result.pin);
+                    };
+
+                    createSection.classList.add('hidden');
+                    roomCreatedSection.classList.remove('hidden');
+                } catch (error) {
+                    alert('ルーム作成に失敗しました: ' + error.message);
+                }
+            });
+
+            async function enterHostMode(code, pin) {
+                try {
+                    const valid = await roomManager.verifyPin(code, pin);
+                    if (valid) {
+                        setupScreen.classList.add('hidden');
+                        mainScreen.classList.remove('hidden');
+                        document.getElementById('headerRoomCode').textContent = code;
+
+                        // リアルタイム監視開始
+                        roomManager.onRoomUpdate((room) => {
+                            if (room) {
+                                updateUI(room);
+                            }
+                        });
+                    } else {
+                        alert('PINが正しくありません');
+                    }
+                } catch (error) {
+                    alert('認証に失敗しました: ' + error.message);
+                }
+            }
+
+            // URLコピー
+            document.getElementById('copyUrlBtn').addEventListener('click', () => {
+                const urlInput = document.getElementById('shareUrl');
+                urlInput.select();
+                navigator.clipboard.writeText(urlInput.value).then(() => {
+                    document.getElementById('copyUrlBtn').textContent = '✓ コピーしました';
+                    setTimeout(() => {
+                        document.getElementById('copyUrlBtn').textContent = '📋 コピー';
+                    }, 2000);
+                });
+            });
+
+            // 再開実行
+            document.getElementById('resumeRoomBtn').onclick = async () => {
+                const code = document.getElementById('resumeRoomCode').value;
+                const pin = document.getElementById('resumePin').value;
+                if (!code || !pin) {
+                    alert('ルームコードとPINを入力してください');
+                    return;
+                }
+                await enterHostMode(code, pin);
+            };
+
+            // 解放
+            document.getElementById('openBtn').addEventListener('click', async () => {
+                playSound('open');
+                await roomManager.openBuzz();
+            });
+
+            // 正解
+            document.getElementById('correctBtn').addEventListener('click', async () => {
+                playSound('correct');
+                await roomManager.judge('correct');
+
+                // 自動進行: 1秒後に次へ -> 0.5秒後にOpen
+                setTimeout(async () => {
+                    await roomManager.nextRound();
+                    setTimeout(async () => {
+                        playSound('open');
+                        await roomManager.openBuzz();
+                    }, 500);
+                }, 1000);
+            });
+
+            // 誤答
+            document.getElementById('wrongBtn').addEventListener('click', async () => {
+                playSound('wrong');
+                await roomManager.judge('wrong');
+
+                // 自動再開: 0.5秒後にOpen
+                setTimeout(async () => {
+                    playSound('open');
+                    await roomManager.openBuzz();
+                }, 500);
+            });
+
+            // 次へ
+            document.getElementById('nextBtn').addEventListener('click', async () => {
+                playSound('open');
+                await roomManager.nextRound();
+            });
+
+            // 設定トグル
+            document.getElementById('settingsToggle').addEventListener('click', () => {
+                document.getElementById('settingsOverlay').classList.add('active');
+            });
+
+            document.getElementById('closeSettings').addEventListener('click', () => {
+                document.getElementById('settingsOverlay').classList.remove('active');
+            });
+
+            // 設定オプション
+            document.querySelectorAll('.setting-option').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const setting = btn.dataset.setting;
+                    let value = btn.dataset.value;
+
+                    if (value === 'true') value = true;
+                    else if (value === 'false') value = false;
+                    else if (!isNaN(value)) value = parseInt(value);
+
+                    btn.parentElement.querySelectorAll('.setting-option').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+
+                    await roomManager.updateRules({ [setting]: value });
+                });
+            });
+
+            // UI更新
+            function updateUI(room) {
+                document.getElementById('roundNumber').textContent = room.roundNumber || 1;
+                currentRules = room.rules || {};
+
+                const badge = document.getElementById('roomStateBadge');
+                const openBtn = document.getElementById('openBtn');
+                const nextBtn = document.getElementById('nextBtn');
+                const judgeButtons = document.getElementById('judgeButtons');
+                const winnerDisplay = document.getElementById('winnerDisplay');
+                const waitingDisplay = document.getElementById('waitingDisplay');
+
+                badge.className = 'badge';
+                nextBtn.disabled = !room.canAdvance;
+
+                // 早押し音のトリガー (OPEN -> LOCKED)
+                if (previousState === 'OPEN' && room.roomState === 'LOCKED') {
+                    playSound('buzz');
+                }
+                previousState = room.roomState;
+
+                switch (room.roomState) {
+                    case 'WAITING':
+                        badge.classList.add('badge-waiting');
+                        badge.textContent = 'WAITING';
+                        openBtn.disabled = false;
+                        judgeButtons.classList.add('hidden');
+                        winnerDisplay.classList.add('hidden');
+                        waitingDisplay.classList.remove('hidden');
+                        break;
+                    case 'OPEN':
+                        badge.classList.add('badge-open');
+                        badge.textContent = 'OPEN';
+                        openBtn.disabled = true;
+                        judgeButtons.classList.add('hidden');
+                        winnerDisplay.classList.add('hidden');
+                        waitingDisplay.classList.add('hidden');
+                        break;
+                    case 'LOCKED':
+                        badge.classList.add('badge-locked');
+                        badge.textContent = 'LOCKED';
+                        openBtn.disabled = true;
+                        judgeButtons.classList.remove('hidden');
+                        waitingDisplay.classList.add('hidden');
+                        if (room.winner) {
+                            winnerDisplay.classList.remove('hidden');
+                            document.getElementById('winnerName').textContent = room.winner.displayName;
+                            document.getElementById('reactionTime').textContent = room.winner.reactionTime || 0;
+                        }
+                        break;
+                }
+
+                updatePlayerList(room.players || {});
+                updateSettingsUI();
+            }
+
+            function updatePlayerList(players) {
+                const playerList = document.getElementById('playerList');
+                const playerArray = Object.values(players);
+                document.getElementById('playerCount').textContent = playerArray.length;
+
+                if (playerArray.length === 0) {
+                    playerList.innerHTML = '<p class="text-muted">参加者を待っています...</p>';
+                    return;
+                }
+
+                const sorted = playerArray.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+                playerList.innerHTML = sorted.map(p => {
+                    const offlineClass = p.connectionStatus === 'offline' ? 'offline' : '';
+                    return `
+                        <div class="player-item ${offlineClass}">
+                            <span class="player-name">${escapeHtml(p.displayName)}</span>
+                            <span class="player-score">${p.score || 0}pt</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            function updateSettingsUI() {
+                document.querySelectorAll('.setting-option').forEach(btn => {
+                    const setting = btn.dataset.setting;
+                    let value = btn.dataset.value;
+
+                    if (value === 'true') value = true;
+                    else if (value === 'false') value = false;
+                    else if (!isNaN(value)) value = parseInt(value);
+
+                    if (currentRules[setting] === value) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            // 効果音 (MP3)
+            const sounds = {
+                correct: new Audio('./sounds/correct.mp3'),
+                wrong: new Audio('./sounds/wrong.mp3'),
+                open: new Audio('./sounds/open.mp3'),
+                buzz: new Audio('./sounds/buzz.mp3')
+            };
+
+            function playSound(type) {
+                const audio = sounds[type];
+                if (audio) {
+                    audio.currentTime = 0;
+                    audio.play().catch(e => console.log('Sound play error:', e));
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
