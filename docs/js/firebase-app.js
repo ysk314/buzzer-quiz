@@ -15,7 +15,8 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // アプリバージョン
-window.APP_VERSION = 'v1.1.0';
+const APP_VERSION = 'v1.1.1'; // 1.1.1に更新
+window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {
     // フッター追加
@@ -192,13 +193,10 @@ class RoomManager {
         const updates = {};
 
         for (const token in players) {
-            const player = players[token];
-            if (player.penaltyNextRound) {
-                updates[`players/${token}/playerState`] = 'LOCKED_PENALTY_THIS';
-                updates[`players/${token}/penaltyNextRound`] = false;
-            } else if (player.playerState !== 'LOCKED_PENALTY_THIS') {
-                updates[`players/${token}/playerState`] = 'READY';
-            }
+            // ペナルティ解除ロジック修正: 全員解除なら、LOCKED_PENALTY_THISも含めてREADYにする
+            // ユーザー要望「全員ペナルティ解除で解除されない」-> 強制解除に変更
+            updates[`players/${token}/playerState`] = 'READY';
+            updates[`players/${token}/penaltyNextRound`] = null; // 次問ペナルティもなくす
         }
 
         if (Object.keys(updates).length > 0) {

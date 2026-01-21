@@ -205,11 +205,17 @@
     <!-- プレイヤーメイン画面 -->
     <div id="mainScreen" class="player-container hidden">
         <header class="player-header">
-            <div class="player-info" style="display: flex; align-items: center; gap: 8px;">
-                <button id="exitBtn" class="btn btn-small btn-secondary">←</button>
-                <span class="my-name" id="myName">---</span>
+            <div class="player-info">
+                <span class="player-name" id="myDisplayName">Guest</span>
+                <span class="player-role">PLAYER</span>
             </div>
-            <div class="my-score"><span id="myScore">0</span>pt</div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <!-- 問題数表示 -->
+                <span id="playerRoundNum"
+                    style="font-weight: bold; color: var(--accent-cyan); margin-right: 5px;">第1問</span>
+                <div class="my-score"><span id="myScore">0</span>pt</div>
+            </div>
+            <button id="exitBtn" class="btn btn-small btn-secondary" style="margin-left: 8px;">退出</button>
         </header>
 
         <div class="buzzer-area">
@@ -350,7 +356,7 @@
                 joinScreen.classList.add('hidden');
                 mainScreen.classList.remove('hidden');
 
-                document.getElementById('myName').textContent = displayName;
+                document.getElementById('myDisplayName').textContent = displayName; // Changed from myName to myDisplayName
                 document.getElementById('myScore').textContent = myScore;
 
                 // リアルタイム監視開始
@@ -406,7 +412,8 @@
 
                     prevScore = myScore;
                     myScore = newScore;
-                    document.getElementById('myScore').textContent = myScore;
+                    document.getElementById('myScore').textContent = me.score || 0;
+                    document.getElementById('playerRoundNum').textContent = `第${room.roundNumber || 1}問`;
                     playerState = me.playerState || 'READY';
                 }
 

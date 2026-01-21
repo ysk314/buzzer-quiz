@@ -226,6 +226,11 @@
                     <div class="room-code" id="displayPin" style="font-size: 2rem;"></div>
                 </div>
 
+                <!-- 戻るボタン追加 -->
+                <div class="mt-md text-left">
+                    <button class="btn btn-small btn-secondary" id="backToChoiceFromCreated">戻る</button>
+                </div>
+
                 <div class="mt-lg">
                     <button class="btn btn-primary btn-large" id="autoJoinBtn">
                         🚀 ホストとして開始
@@ -257,7 +262,7 @@
                 </div>
                 <div id="roomStateBadge" class="badge badge-waiting">WAITING</div>
             </div>
-            <a href="javascript:history.back()" class="btn btn-small btn-secondary">戻る</a>
+            <button id="backToSetupBtn" class="btn btn-small btn-secondary">戻る</button>
         </header>
 
         <div class="main-grid">
@@ -314,7 +319,7 @@
             </div>
 
             <div class="card">
-                <h3 class="mb-md">参加者一覧</h3>
+                <h3 class="mb-md">参加者一覧 (<span id="playerListCount">0</span>人)</h3>
                 <div id="playerList" class="player-grid">
                     <p class="text-muted">参加者を待っています...</p>
                 </div>
@@ -454,6 +459,16 @@
 
                     createSection.classList.add('hidden');
                     roomCreatedSection.classList.remove('hidden');
+
+                    // 戻るボタン (Generated Screen)
+                    document.getElementById('backToChoiceFromCreated').onclick = () => {
+                        roomCreatedSection.classList.add('hidden');
+                        setupScreen.classList.remove('hidden');
+                        // ルーム作成フローに戻るなら: setupScreen > choiceSection表示へ
+                        choiceSection.classList.remove('hidden');
+                        createSection.classList.add('hidden');
+                    };
+
                 } catch (error) {
                     alert('ルーム作成に失敗しました: ' + error.message);
                 }
@@ -461,11 +476,28 @@
 
             async function enterHostMode(code, pin) {
                 try {
+                    await roomManager.joinRoom(code); // RoomRef初期化のために必須
                     const valid = await roomManager.verifyPin(code, pin);
                     if (valid) {
                         setupScreen.classList.add('hidden');
                         mainScreen.classList.remove('hidden');
                         document.getElementById('headerRoomCode').textContent = code;
+
+                        // 戻るボタン (Main Screen)
+                        document.getElementById('backToSetupBtn').onclick = () => {
+                            mainScreen.classList.add('hidden');
+                            if (document.getElementById('roomCreatedSection').style.display !== 'none' || document.getElementById('shareUrl').value) {
+                                // 新規作成直後ならCreatedへ
+                                setupScreen.classList.remove('hidden');
+                                roomCreatedSection.classList.remove('hidden');
+                            } else {
+                                // 再開なら再開画面へ？
+                                // とりあえずセットアップトップへ戻す
+                                setupScreen.classList.remove('hidden');
+                                choiceSection.classList.remove('hidden');
+                                resumeSection.classList.add('hidden');
+                            }
+                        };
 
                         // リアルタイム監視開始
                         roomManager.onRoomUpdate((room) => {
@@ -515,14 +547,7 @@
                 playSound('correct');
                 await roomManager.judge('correct');
 
-                // 自動進行: 1秒後に次へ -> 0.5秒後にOpen
-                setTimeout(async () => {
-                    await roomManager.nextRound();
-                    setTimeout(async () => {
-                        playSound('open');
-                        await roomManager.openBuzz();
-                    }, 500);
-                }, 1000);
+                // 自動進行: 廃止（手動のみ）
             });
 
             // 誤答
@@ -591,6 +616,10 @@
                 const rDisp = document.getElementById('roundNumberDisplay');
                 if (rDisp) rDisp.textContent = rNum;
 
+                // 参加者人数 (リストヘッダー)
+                const pCount = Object.keys(room.players || {}).length;
+                document.getElementById('playerListCount').textContent = pCount;
+
                 currentRules = room.rules || {};
 
                 const badge = document.getElementById('roomStateBadge');
@@ -609,7 +638,8 @@
                     badge.classList.add('badge-locked');
                     badge.textContent = 'FINISHED';
 
-                    // ランキング生成
+                    // ランキング生成 (略: 変更なし)
+                    // ... (前のコードのまま)
                     const pList = Object.values(room.players || {});
                     const sorted = pList.sort((a, b) => (b.score || 0) - (a.score || 0));
                     const listEl = document.getElementById('hostRankingList');
@@ -636,7 +666,14 @@
                 if (controlSection) controlSection.classList.remove('hidden');
                 if (finalRankingSection) finalRankingSection.classList.add('hidden');
 
-                // Openボタン文言
+                // Openボタン文言 & 表示制御
+                // OPEN中はボタン不要
+                if (room.roomState === 'OPEN') {
+                    openBtn.classList.add('hidden');
+                } else {
+                    openBtn.classList.remove('hidden');
+                }
+
                 const isFirstWait = (rNum === 1) && room.roomState === 'WAITING' && !room.openTimestamp;
                 if (isFirstWait) {
                     openBtn.textContent = '🚀 クイズスタート！';
@@ -644,6 +681,15 @@
                 } else {
                     openBtn.textContent = '🔓 全員ペナルティ解除';
                     waitingDisplay.innerHTML = '<p class="text-secondary" style="font-size: 1.2rem;">「回答再開」を押してください</p>';
+                }
+
+                // Nextボタン制御
+                // WAITINGかつ第1問開始前（openTimestampなし）なら無効
+                // 厳密には「第1問」かつ「まだ始まってない」時。
+                if (isFirstWait) {
+                    nextBtn.disabled = true;
+                } else {
+                    nextBtn.disabled = false;
                 }
 
                 // 早押し音トリガー
@@ -658,7 +704,6 @@
                     case 'WAITING':
                         badge.classList.add('badge-waiting');
                         badge.textContent = 'WAITING';
-                        // openBtn.disabled = false; // 常に有効
                         judgeButtons.classList.add('hidden');
                         winnerDisplay.classList.add('hidden');
                         waitingDisplay.classList.remove('hidden');
@@ -666,7 +711,6 @@
                     case 'OPEN':
                         badge.classList.add('badge-open');
                         badge.textContent = 'OPEN';
-                        // openBtn.disabled = true; // 常に有効
                         judgeButtons.classList.add('hidden');
                         winnerDisplay.classList.add('hidden');
                         waitingDisplay.classList.add('hidden');
@@ -674,7 +718,6 @@
                     case 'LOCKED':
                         badge.classList.add('badge-locked');
                         badge.textContent = 'LOCKED';
-                        // openBtn.disabled = true; // 常に有効
                         judgeButtons.classList.remove('hidden');
                         waitingDisplay.classList.add('hidden');
                         if (room.winner) {
