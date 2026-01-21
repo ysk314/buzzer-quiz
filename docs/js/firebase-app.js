@@ -15,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // アプリバージョン
-const APP_VERSION = 'v1.3.7'; // v1.3.7に更新（Socket.io 404エラー修正）
+const APP_VERSION = 'v1.3.8'; // v1.3.8に更新（Firebase版に戻し戦）
 window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {
