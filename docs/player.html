@@ -285,9 +285,16 @@
                 e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
             });
 
-            // ルーム確認
-            document.getElementById('checkRoomBtn').addEventListener('click', async () => {
-                roomCode = roomCodeInput.value.trim().toUpperCase();
+            // roomManagerが定義されるまで待機してからイベントリスナーを設定
+            const setupRoomManager = () => {
+                if (typeof roomManager === 'undefined') {
+                    setTimeout(setupRoomManager, 100);
+                    return;
+                }
+
+                // ルーム確認
+                document.getElementById('checkRoomBtn').addEventListener('click', async () => {
+                    roomCode = roomCodeInput.value.trim().toUpperCase();
 
                 if (roomCode.length !== 6) {
                     alert('ルームコードは6文字です');
@@ -355,6 +362,9 @@
                 }
             }
 
+            // setupRoomManager() を呼び出して、roomManager が定義されたらイベントリスナーを設定する
+            setupRoomManager();
+
             function enterGame() {
                 joinScreen.classList.add('hidden');
                 mainScreen.classList.remove('hidden');
@@ -375,23 +385,23 @@
                         roomManager.disconnectPlayer(playerToken);
                     }
                 });
+
+                // 早押しボタン
+                buzzerBtn.addEventListener('click', async () => {
+                    if (buzzerBtn.disabled) return;
+                    if (playerState !== 'READY' || roomState !== 'OPEN') return;
+
+                    buzzerBtn.classList.add('pressed');
+                    playerState = 'PRESSED';
+                    updateBuzzerState();
+
+                    const result = await roomManager.buzz(playerToken);
+                    if (result.success && result.isWinner) {
+                        buzzerBtn.classList.remove('pressed');
+                        buzzerBtn.classList.add('winner');
+                    }
+                });
             }
-
-            // 早押しボタン
-            buzzerBtn.addEventListener('click', async () => {
-                if (buzzerBtn.disabled) return;
-                if (playerState !== 'READY' || roomState !== 'OPEN') return;
-
-                buzzerBtn.classList.add('pressed');
-                playerState = 'PRESSED';
-                updateBuzzerState();
-
-                const result = await roomManager.buzz(playerToken);
-                if (result.success && result.isWinner) {
-                    buzzerBtn.classList.remove('pressed');
-                    buzzerBtn.classList.add('winner');
-                }
-            });
 
             function updateUI(room) {
                 const prevRoomState = roomState;

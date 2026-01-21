@@ -442,58 +442,102 @@
                 document.getElementById('resumeRoomCode').value = roomFromUrl;
             }
 
-            document.getElementById('createRoomBtn').addEventListener('click', async () => {
-                try {
-                    const result = await roomManager.createRoom();
-                    roomCode = result.roomCode;
-
-                    document.getElementById('displayRoomCode').textContent = roomCode;
-                    document.getElementById('displayPin').textContent = result.pin;
-
-                    // URL更新
-                    const newUrl = `${window.location.pathname}?room=${roomCode}`;
-                    window.history.pushState({ path: newUrl }, '', newUrl);
-
-                    const shareUrl = `${window.location.origin}${window.location.pathname.replace('host.html', '')}player.html?room=${roomCode}`;
-                    document.getElementById('shareUrl').value = shareUrl;
-
-                    // QRコード生成
-                    document.getElementById('qrcode').innerHTML = '';
-                    new QRCode(document.getElementById('qrcode'), {
-                        text: shareUrl,
-                        width: 150,
-                        height: 150,
-                        colorDark: '#000000',
-                        colorLight: '#ffffff',
-                        correctLevel: QRCode.CorrectLevel.H
-                    });
-
-                    // PIN表示
-                    document.getElementById('roomCreatedMsg').style.display = 'block';
-                    document.getElementById('pinDisplaySection').style.display = 'block';
-
-                    // 自動参加ボタン
-                    document.getElementById('autoJoinBtn').onclick = async () => {
-                        await enterHostMode(roomCode, result.pin);
-                    };
-
-                    createSection.classList.add('hidden');
-                    roomCreatedSection.classList.remove('hidden');
-
-                    // 戻るボタン (Generated Screen)
-                    document.getElementById('backToChoiceFromCreated').onclick = () => {
-                        roomCreatedSection.classList.add('hidden');
-                        setupScreen.classList.remove('hidden');
-                        // ルーム作成フローに戻るなら: setupScreen > choiceSection表示へ
-                        choiceSection.classList.remove('hidden');
-                        createSection.classList.add('hidden');
-                    };
-
-                } catch (error) {
-                    console.error('❌ createRoom error:', error);
-                    alert('ルーム作成に失敗しました: ' + error.message);
+            // roomManagerが定義されるまで待機してすべてのイベントリスナーを設定
+            const setupEventListeners = () => {
+                if (typeof roomManager === 'undefined') {
+                    setTimeout(setupEventListeners, 100);
+                    return;
                 }
-            });
+
+                document.getElementById('createRoomBtn').addEventListener('click', async () => {
+                    try {
+                        const result = await roomManager.createRoom();
+                        roomCode = result.roomCode;
+
+                        document.getElementById('displayRoomCode').textContent = roomCode;
+                        document.getElementById('displayPin').textContent = result.pin;
+
+                        // URL更新
+                        const newUrl = `${window.location.pathname}?room=${roomCode}`;
+                        window.history.pushState({ path: newUrl }, '', newUrl);
+
+                        const shareUrl = `${window.location.origin}${window.location.pathname.replace('host.html', '')}player.html?room=${roomCode}`;
+                        document.getElementById('shareUrl').value = shareUrl;
+
+                        // QRコード生成
+                        document.getElementById('qrcode').innerHTML = '';
+                        new QRCode(document.getElementById('qrcode'), {
+                            text: shareUrl,
+                            width: 150,
+                            height: 150,
+                            colorDark: '#000000',
+                            colorLight: '#ffffff',
+                            correctLevel: QRCode.CorrectLevel.H
+                        });
+
+                        // PIN表示
+                        document.getElementById('roomCreatedMsg').style.display = 'block';
+                        document.getElementById('pinDisplaySection').style.display = 'block';
+
+                        // 自動参加ボタン
+                        document.getElementById('autoJoinBtn').onclick = async () => {
+                            await enterHostMode(roomCode, result.pin);
+                        };
+
+                        createSection.classList.add('hidden');
+                        roomCreatedSection.classList.remove('hidden');
+
+                        // 戻るボタン (Generated Screen)
+                        document.getElementById('backToChoiceFromCreated').onclick = () => {
+                            roomCreatedSection.classList.add('hidden');
+                            setupScreen.classList.remove('hidden');
+                            // ルーム作成フローに戻るなら: setupScreen > choiceSection表示へ
+                            choiceSection.classList.remove('hidden');
+                            createSection.classList.add('hidden');
+                        };
+
+                    } catch (error) {
+                        console.error('❌ createRoom error:', error);
+                        alert('ルーム作成に失敗しました: ' + error.message);
+                    }
+                });
+
+                // openBtn
+                document.getElementById('openBtn').addEventListener('click', async () => {
+                    playSound('open');
+                    await roomManager.openBuzz();
+                });
+
+                // 正解
+                document.getElementById('correctBtn').addEventListener('click', async () => {
+                    playSound('correct');
+                    await roomManager.judge('correct');
+                });
+
+                // 誤答
+                document.getElementById('wrongBtn').addEventListener('click', async () => {
+                    playSound('wrong');
+                    await roomManager.judge('wrong');
+                    setTimeout(async () => {
+                        await roomManager.openBuzz(false);
+                    }, 500);
+                });
+
+                // 次へ
+                document.getElementById('nextBtn').addEventListener('click', async () => {
+                    playSound('open');
+                    await roomManager.nextRound();
+                });
+
+                // Undo
+                document.getElementById('undoBtn').addEventListener('click', async () => {
+                    if (confirm('判定をやり直しますか？（スコアや状態が判定前に戻ります）')) {
+                        await roomManager.restoreBackup();
+                    }
+                });
+            };
+
+            setupEventListeners();
 
             async function enterHostMode(code, pin) {
                 try {
@@ -560,43 +604,6 @@
             };
 
             // 解放
-            document.getElementById('openBtn').addEventListener('click', async () => {
-                playSound('open');
-                await roomManager.openBuzz();
-            });
-
-            // 正解
-            document.getElementById('correctBtn').addEventListener('click', async () => {
-                playSound('correct');
-                await roomManager.judge('correct');
-
-                // 自動進行: 廃止（手動のみ）
-            });
-
-            // 誤答
-            document.getElementById('wrongBtn').addEventListener('click', async () => {
-                playSound('wrong');
-                await roomManager.judge('wrong');
-
-                // 自動再開: 0.5秒後にOpen (ペナルティ筙持)
-                setTimeout(async () => {
-                    await roomManager.openBuzz(false); // forceClearPenalty=false
-                }, 500);
-            });
-
-            // 次へ
-            document.getElementById('nextBtn').addEventListener('click', async () => {
-                playSound('open');
-                await roomManager.nextRound();
-            });
-
-            // Undo (一手戻す)
-            document.getElementById('undoBtn').addEventListener('click', async () => {
-                if (confirm('判定をやり直しますか？（スコアや状態が判定前に戻ります）')) {
-                    await roomManager.restoreBackup();
-                }
-            });
-
             // 設定トグル
             document.getElementById('settingsToggle').addEventListener('click', () => {
                 document.getElementById('settingsOverlay').classList.add('active');

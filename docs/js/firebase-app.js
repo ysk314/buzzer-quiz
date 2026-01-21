@@ -10,24 +10,40 @@ const firebaseConfig = {
     appId: "1:867697396230:web:17be5e915c05ada9ccd187"
 };
 
-// Firebase初期化
-firebase.initializeApp(firebaseConfig);
+// Firebase初期化（複数回の初期化を防止）
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
 const database = firebase.database();
 
-// 匿名ログイン
-firebase.auth().onAuthStateChanged((user) => {
-    if (!user) {
-        // ログインしていないなら匿名ログイン
-        firebase.auth().signInAnonymously().catch((error) => {
-            console.error('匿名ログインエラー:', error);
-        });
-    } else {
-        console.log('✅ ログイン済み:', user.uid);
+// 匿名ログイン（安全な実装）
+function setupFirebaseAuth() {
+    if (typeof firebase === 'undefined' || !firebase.auth) {
+        console.warn('Firebase Auth が読み込まれていません。再度試みます...');
+        setTimeout(setupFirebaseAuth, 100);
+        return;
     }
-});
+    
+    firebase.auth().onAuthStateChanged((user) => {
+        if (!user) {
+            firebase.auth().signInAnonymously().catch((error) => {
+                console.error('匿名ログインエラー:', error);
+            });
+        } else {
+            console.log('✅ ログイン済み:', user.uid);
+        }
+    });
+}
+
+// DOM読み込み後に認証を設定
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupFirebaseAuth);
+} else {
+    setupFirebaseAuth();
+}
 
 // アプリバージョン
-const APP_VERSION = 'v1.5.1'; // v1.5.1に更新（Firebase匿名ログイン追加）
+const APP_VERSION = 'v1.5.3'; // v1.5.3に更新（Firebase初期化修正）
 window.APP_VERSION = APP_VERSION; // グローバルスコープで使用可能
 
 let appInitialized = false;
