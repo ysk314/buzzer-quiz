@@ -15,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // アプリバージョン
-const APP_VERSION = 'v1.3.2'; // v1.3.2に更新
+const APP_VERSION = 'v1.3.3'; // v1.3.3に更新（nextRound状態管理修正）
 window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {
