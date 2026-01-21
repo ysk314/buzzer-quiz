@@ -246,7 +246,7 @@
             </div>
             <!-- Version display moved inside card -->
             <div class="mt-lg text-muted" style="font-size: 0.8rem;">
-                Buzzer Quiz App v1.2.3
+                Buzzer Quiz App v1.2.4
             </div>
         </div> <!-- card end -->
     </div> <!-- setupScreen end -->
@@ -700,25 +700,22 @@
                 );
 
                 if (room.roomState === 'WAITING') {
-                    showOpenBtn = true;
+                    // 正解(winner)が出た後は canAdvance=true。その間はボタン不要（ユーザー要望）
+                    showOpenBtn = !room.canAdvance;
                 } else if (room.roomState === 'LOCKED') {
                     if (room.winner) {
                         showOpenBtn = false;
-                    } else if (hasPenalty) {
-                        showOpenBtn = true;
                     } else {
+                        // 回答者がいないロック状態（タイムアウト等）やペナルティ中は表示
                         showOpenBtn = true;
                     }
-                } else {
-                    showOpenBtn = false;
+                } else if (room.roomState === 'OPEN') {
+                    // 回答受付中。誰かがペナルティ中の場合は「解除」ボタンとして出す
+                    showOpenBtn = hasPenalty;
                 }
 
                 if (showOpenBtn) {
                     openBtn.classList.remove('hidden');
-                    // ユーザー要望: 正解(winner)が出た後は「回答再開」や案内はいらない
-                    if (room.winner) {
-                        openBtn.classList.add('hidden');
-                    }
                 } else {
                     openBtn.classList.add('hidden');
                 }
@@ -731,8 +728,9 @@
                     // 正解後: 「回答再開」案内を消す (ユーザー要望)
                     waitingDisplay.innerHTML = '<p class="text-accent" style="font-size: 1.2rem;">正解！「次へ」を押してください</p>';
                 } else if (showOpenBtn) {
-                    openBtn.textContent = '🔓 回答再開 / ペナルティ解除';
-                    waitingDisplay.innerHTML = '<p class="text-secondary" style="font-size: 1.2rem;">「回答再開」を押してください</p>';
+                    // ペナルティがいる場合は解除を強調、それ以外は回答再開
+                    openBtn.textContent = hasPenalty ? '🔓 全員ペナルティ解除' : '🔓 回答再開';
+                    waitingDisplay.innerHTML = hasPenalty ? '<p class="text-secondary" style="font-size: 1.2rem;">「ペナルティ解除」を押すと全員回答可能になります</p>' : '<p class="text-secondary" style="font-size: 1.2rem;">「回答再開」を押してください</p>';
                 } else {
                     waitingDisplay.innerHTML = '';
                 }
