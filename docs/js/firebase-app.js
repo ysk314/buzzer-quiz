@@ -13,13 +13,12 @@ const firebaseConfig = {
 // Firebase初期化
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
-const auth = firebase.auth();
 
 // 匿名ログイン
-auth.onAuthStateChanged((user) => {
+firebase.auth().onAuthStateChanged((user) => {
     if (!user) {
         // ログインしていないなら匿名ログイン
-        auth.signInAnonymously().catch((error) => {
+        firebase.auth().signInAnonymously().catch((error) => {
             console.error('匿名ログインエラー:', error);
         });
     } else {
@@ -28,8 +27,10 @@ auth.onAuthStateChanged((user) => {
 });
 
 // アプリバージョン
-const APP_VERSION = 'v1.5.1'; // v1.5.1に更新（Firebase匹名ログイン追加）
-window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
+const APP_VERSION = 'v1.5.1'; // v1.5.1に更新（Firebase匿名ログイン追加）
+window.APP_VERSION = APP_VERSION; // グローバルスコープで使用可能
+
+let appInitialized = false;
 
 document.addEventListener('DOMContentLoaded', () => {
     // フッター追加
@@ -49,6 +50,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         document.body.appendChild(footer);
     }
+    
+    appInitialized = true;
 });
 
 // ユーティリティ関数
@@ -479,4 +482,4 @@ class RoomManager {
 }
 
 // グローバルインスタンス
-const roomManager = new RoomManager();
+const roomManager = new RoomManager();window.roomManager = roomManager; // グローバルに割り当て
