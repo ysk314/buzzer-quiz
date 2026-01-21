@@ -244,7 +244,7 @@
             </div>
             <!-- Version display moved inside card -->
             <div class="mt-lg text-muted" style="font-size: 0.8rem;">
-                Buzzer Quiz App v1.2.8
+                Buzzer Quiz App v1.2.9
             </div>
         </div> <!-- card end -->
     </div> <!-- setupScreen end -->
@@ -742,6 +742,16 @@
                     waitingDisplay.innerHTML = '';
                 }
 
+                // 「次の問題へ」ボタンの表示制御:
+                // 1. 正解が出た後 (WAITING 且つ canAdvance=true) のみ表示
+                // 2. 第1問開始前 (WAITING 且つ openTimestampなし) は非表示（クイズスタートボタンがあるため）
+                const showNextBtn = (room.roomState === 'WAITING' && room.canAdvance && room.openTimestamp);
+                if (showNextBtn) {
+                    nextBtn.classList.remove('hidden');
+                } else {
+                    nextBtn.classList.add('hidden');
+                }
+
                 // Undoボタン表示制御
                 const undoBtn = document.getElementById('undoBtn');
                 if (undoBtn) {
@@ -752,14 +762,8 @@
                     }
                 }
 
-                // Nextボタン制御
-                // WAITINGかつ第1問開始前（openTimestampなし）なら無効
-                // 厳密には「第1問」かつ「まだ始まってない」時。
-                if (isFirstWait) {
-                    nextBtn.disabled = true;
-                } else {
-                    nextBtn.disabled = false;
-                }
+                // Nextボタン制御 (削除/統合)
+
 
                 // 早押し音トリガー
                 if (previousState === 'OPEN' && room.roomState === 'LOCKED') {

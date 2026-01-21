@@ -15,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // アプリバージョン
-const APP_VERSION = 'v1.2.8'; // v1.2.8に更新
+const APP_VERSION = 'v1.2.9'; // v1.2.9に更新
 window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -336,16 +336,23 @@ class RoomManager {
 
         const updates = {
             players: room.backup.players,
-            roomState: room.backup.backupState || room.backup.roomState, // 互換性
+            roomState: room.backup.roomState,
             roundNumber: room.backup.roundNumber,
             winner: room.backup.winner,
             canAdvance: room.backup.canAdvance || false,
             backup: null // 使用後は消去
         };
 
-        // roomStateの正規化（古いバックアップとの互換性）
-        if (room.backup.players) updates.players = room.backup.players;
-        if (room.backup.roomState) updates.roomState = room.backup.roomState;
+        // 判定（LOCKEDでwinnerあり）のUndoなら、強制的にOPEN（受付中）に戻す
+        if (room.backup.roomState === 'LOCKED' && room.backup.winner) {
+            updates.roomState = 'OPEN';
+            updates.winner = null;
+            // 回答中だった人の状態をREADYに戻す
+            const winnerToken = room.backup.winner.playerToken;
+            if (updates.players && updates.players[winnerToken]) {
+                updates.players[winnerToken].playerState = 'READY';
+            }
+        }
 
         await this.roomRef.update(updates);
         return { success: true };
@@ -374,8 +381,16 @@ class RoomManager {
             backup: backup
         };
 
+        // プレイヤー状態の更新（ペナルティ処理）
         for (const t in room.players) {
-            updates[`players/${t}/playerState`] = 'READY';
+            const player = room.players[t];
+            if (player.penaltyNextRound) {
+                // 次のラウンドで休み
+                updates[`players/${t}/playerState`] = 'LOCKED_PENALTY_THIS';
+                updates[`players/${t}/penaltyNextRound`] = false;
+            } else {
+                updates[`players/${t}/playerState`] = 'READY';
+            }
         }
 
         await this.roomRef.update(updates);
