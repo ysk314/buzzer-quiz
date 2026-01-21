@@ -247,7 +247,21 @@ function nextRound(roomCode) {
     saveHistory(room);
 
     room.roundNumber++;
-    applyOpenState(room);
+    // 次のラウンドはWAITING状態で開始（早押しの解放はホストが明示的に指示）
+    room.roomState = 'WAITING';
+    room.openTimestamp = null;
+    room.buzzQueue = [];
+    room.winner = null;
+
+    // 全プレイヤーの状態をリセット
+    for (const [token, player] of room.players) {
+        if (player.penaltyNextRound) {
+            player.playerState = 'LOCKED_PENALTY_THIS';
+            player.penaltyNextRound = false;
+        } else {
+            player.playerState = 'READY';
+        }
+    }
 
     return { success: true, roundNumber: room.roundNumber };
 }
