@@ -15,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // アプリバージョン
-const APP_VERSION = 'v1.2.5'; // v1.2.5に更新
+const APP_VERSION = 'v1.2.6'; // v1.2.6に更新
 window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -310,54 +310,53 @@ class RoomManager {
             updates['roomState'] = 'LOCKED';
             updates['winner'] = null;
         }
-    }
 
         await this.roomRef.update(updates);
-return { success: true, result };
+        return { success: true };
     }
 
     // 次のラウンド
     async nextRound() {
-    const roomSnapshot = await this.roomRef.once('value');
-    const room = roomSnapshot.val();
+        const roomSnapshot = await this.roomRef.once('value');
+        const room = roomSnapshot.val();
 
-    const updates = {
-        roundNumber: (room.roundNumber || 1) + 1,
-        roomState: 'OPEN',
-        canAdvance: false,
-        openTimestamp: firebase.database.ServerValue.TIMESTAMP,
-        winner: null
-    };
+        const updates = {
+            roundNumber: (room.roundNumber || 1) + 1,
+            roomState: 'OPEN',
+            canAdvance: false,
+            openTimestamp: firebase.database.ServerValue.TIMESTAMP,
+            winner: null
+        };
 
-    for (const t in room.players) {
-        updates[`players/${t}/playerState`] = 'READY';
+        for (const t in room.players) {
+            updates[`players/${t}/playerState`] = 'READY';
+        }
+
+        await this.roomRef.update(updates);
+        return { success: true, roundNumber: updates.roundNumber };
     }
-
-    await this.roomRef.update(updates);
-    return { success: true, roundNumber: updates.roundNumber };
-}
 
     // ルール更新
     async updateRules(newRules) {
-    await this.roomRef.child('rules').update(newRules);
-}
+        await this.roomRef.child('rules').update(newRules);
+    }
 
     // ゲーム終了
     async finishGame() {
-    await this.roomRef.update({
-        roomState: 'FINISHED',
-        canAdvance: false,
-        winner: null
-    });
-}
+        await this.roomRef.update({
+            roomState: 'FINISHED',
+            canAdvance: false,
+            winner: null
+        });
+    }
 
-// クリーンアップ
-cleanup() {
-    this.listeners.forEach(({ ref, event, listener }) => {
-        ref.off(event, listener);
-    });
-    this.listeners = [];
-}
+    // クリーンアップ
+    cleanup() {
+        this.listeners.forEach(({ ref, event, listener }) => {
+            ref.off(event, listener);
+        });
+        this.listeners = [];
+    }
 }
 
 // グローバルインスタンス
