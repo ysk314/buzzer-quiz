@@ -179,8 +179,9 @@ io.on('connection', (socket) => {
         const result = gameLogic.nextRound(roomCode);
 
         if (result.success) {
+            const room = roomManager.getRoom(roomCode);
             io.to(roomCode).emit('roomStateUpdate', {
-                roomState: 'WAITING',
+                roomState: room.roomState,
                 roundNumber: result.roundNumber,
                 winner: null
             });

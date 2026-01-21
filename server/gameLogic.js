@@ -41,14 +41,8 @@ function saveHistory(room) {
     }
 }
 
-// 早押し解放
-function openBuzz(roomCode) {
-    const room = roomManager.getRoom(roomCode);
-    if (!room) return { success: false, error: 'ROOM_NOT_FOUND' };
-    if (room.roomState !== 'WAITING') return { success: false, error: 'INVALID_STATE' };
-
-    saveHistory(room);
-
+// OPEN状態への共通処理
+function applyOpenState(room) {
     room.roomState = 'OPEN';
     room.openTimestamp = Date.now();
     room.buzzQueue = [];
@@ -63,6 +57,17 @@ function openBuzz(roomCode) {
             player.playerState = 'READY';
         }
     }
+}
+
+// 早押し解放
+function openBuzz(roomCode) {
+    const room = roomManager.getRoom(roomCode);
+    if (!room) return { success: false, error: 'ROOM_NOT_FOUND' };
+    if (room.roomState !== 'WAITING') return { success: false, error: 'INVALID_STATE' };
+
+    saveHistory(room);
+
+    applyOpenState(room);
 
     return { success: true, openTimestamp: room.openTimestamp };
 }
@@ -242,17 +247,7 @@ function nextRound(roomCode) {
     saveHistory(room);
 
     room.roundNumber++;
-    room.roomState = 'WAITING';
-    room.openTimestamp = null;
-    room.buzzQueue = [];
-    room.winner = null;
-
-    // 全員READY（ペナルティ持ち越し処理はopenBuzzで）
-    for (const [t, p] of room.players) {
-        if (p.playerState !== 'LOCKED_PENALTY_NEXT') {
-            p.playerState = 'READY';
-        }
-    }
+    applyOpenState(room);
 
     return { success: true, roundNumber: room.roundNumber };
 }
