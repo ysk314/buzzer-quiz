@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>🎯 早押しクイズ - ホスト</title>
     <link rel="stylesheet" href="css/styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -244,11 +244,12 @@
                     </button>
                 </div>
             </div>
-        </div>
-        <div class="mt-lg text-muted" style="font-size: 0.8rem;">
-            Buzzer Quiz App v1.2.1
-        </div>
-    </div>
+            <!-- Version display moved inside card -->
+            <div class="mt-lg text-muted" style="font-size: 0.8rem;">
+                Buzzer Quiz App v1.2.2
+            </div>
+        </div> <!-- card end -->
+    </div> <!-- setupScreen end -->
 
     <!-- メイン画面 -->
     <div id="mainScreen" class="host-container hidden">
