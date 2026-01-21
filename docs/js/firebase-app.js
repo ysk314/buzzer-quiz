@@ -15,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // アプリバージョン
-const APP_VERSION = 'v1.2.2'; // v1.2.2に更新
+const APP_VERSION = 'v1.2.3'; // v1.2.3に更新
 window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -193,10 +193,14 @@ class RoomManager {
         const updates = {};
 
         for (const token in players) {
-            // ペナルティ解除ロジック修正: 全員解除なら、LOCKED_PENALTY_THISも含めてREADYにする
-            // ユーザー要望「全員ペナルティ解除で解除されない」-> 強制解除に変更
-            updates[`players/${token}/playerState`] = 'READY';
-            updates[`players/${token}/penaltyNextRound`] = null; // 次問ペナルティもなくす
+            // ペナルティ解除ロジック修正: 以前は一律READYにしていたが、
+            // ユーザー要望「不正解なのに回答権ありになってしまう」を修正。
+            // 誤答(LOCKED_PENALTY_THIS)状態の人はそのまま維持し、
+            // それ以外（PRESSEDやLOCKED_LOSTなど）をREADYに戻す。
+            const p = players[token];
+            if (p.playerState === 'PRESSED' || p.playerState === 'LOCKED_LOST') {
+                updates[`players/${token}/playerState`] = 'READY';
+            }
         }
 
         if (Object.keys(updates).length > 0) {

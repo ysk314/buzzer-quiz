@@ -560,11 +560,20 @@
                 if (confirm('本当に退出しますか？')) {
                     if (playerToken) {
                         roomManager.disconnectPlayer(playerToken);
-                        // localStorage.removeItem('buzzer_player_token'); // データ引き継ぎのため削除しない
                     }
                     window.location.href = 'index.html';
                 }
             });
+
+            // バージョン表示
+            const vEl = document.createElement('div');
+            vEl.style.position = 'fixed';
+            vEl.style.bottom = '10px';
+            vEl.style.right = '10px';
+            vEl.style.color = 'rgba(255,255,255,0.3)';
+            vEl.style.fontSize = '0.8rem';
+            vEl.textContent = 'v1.2.3';
+            document.body.appendChild(vEl);
         });
     </script>
 </body>

@@ -246,7 +246,7 @@
             </div>
             <!-- Version display moved inside card -->
             <div class="mt-lg text-muted" style="font-size: 0.8rem;">
-                Buzzer Quiz App v1.2.2
+                Buzzer Quiz App v1.2.3
             </div>
         </div> <!-- card end -->
     </div> <!-- setupScreen end -->
@@ -258,6 +258,10 @@
                 <div class="info-item">
                     <span class="info-label">ルーム</span>
                     <span class="info-value" id="headerRoomCode">---</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">ホストPIN</span>
+                    <span class="info-value" id="headerPin" style="color: var(--accent-purple);">----</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">参加者</span>
@@ -497,6 +501,7 @@
                         setupScreen.classList.add('hidden');
                         mainScreen.classList.remove('hidden');
                         document.getElementById('headerRoomCode').textContent = code;
+                        document.getElementById('headerPin').textContent = pin;
 
                         // 戻るボタン (Main Screen)
                         document.getElementById('backToSetupBtn').onclick = () => {
@@ -710,6 +715,10 @@
 
                 if (showOpenBtn) {
                     openBtn.classList.remove('hidden');
+                    // ユーザー要望: 正解(winner)が出た後は「回答再開」や案内はいらない
+                    if (room.winner) {
+                        openBtn.classList.add('hidden');
+                    }
                 } else {
                     openBtn.classList.add('hidden');
                 }
@@ -719,9 +728,10 @@
                     openBtn.textContent = '🚀 クイズスタート！';
                     waitingDisplay.innerHTML = '<p class="text-secondary" style="font-size: 1.2rem;">参加者が揃ったら、「クイズスタート」をタップ！</p>';
                 } else if (room.winner) {
+                    // 正解後: 「回答再開」案内を消す (ユーザー要望)
                     waitingDisplay.innerHTML = '<p class="text-accent" style="font-size: 1.2rem;">正解！「次へ」を押してください</p>';
                 } else if (showOpenBtn) {
-                    openBtn.textContent = '🔓 全員ペナルティ解除';
+                    openBtn.textContent = '🔓 回答再開 / ペナルティ解除';
                     waitingDisplay.innerHTML = '<p class="text-secondary" style="font-size: 1.2rem;">「回答再開」を押してください</p>';
                 } else {
                     waitingDisplay.innerHTML = '';
