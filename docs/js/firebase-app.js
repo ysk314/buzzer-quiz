@@ -15,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // アプリバージョン
-const APP_VERSION = 'v1.3.8'; // v1.3.8に更新（Firebase版に戻し戦）
+const APP_VERSION = 'v1.3.9'; // v1.3.9に更新（QRCodeエラー修正）
 window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {

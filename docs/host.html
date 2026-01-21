@@ -457,13 +457,14 @@
                     document.getElementById('shareUrl').value = shareUrl;
 
                     // QRコード生成
-                    QRCode.toCanvas(document.getElementById('qrCode'), shareUrl, {
+                    document.getElementById('qrCode').innerHTML = '';
+                    new QRCode(document.getElementById('qrCode'), {
+                        text: shareUrl,
                         width: 150,
-                        margin: 1,
-                        color: {
-                            dark: '#000000',
-                            light: '#ffffff'
-                        }
+                        height: 150,
+                        colorDark: '#000000',
+                        colorLight: '#ffffff',
+                        correctLevel: QRCode.CorrectLevel.H
                     });
 
                     // PIN表示
