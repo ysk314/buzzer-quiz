@@ -316,6 +316,8 @@
             document.getElementById('shuffleNamesBtn').addEventListener('click', generateNameOptions);
 
             async function selectName(name) {
+                if (!confirm(`「${name}」でよろしいですか？`)) return;
+
                 displayName = name;
                 playerToken = generateToken();
 
@@ -457,6 +459,16 @@
                             statusText.classList.add('status-locked');
                         }
                         buzzerBtn.disabled = true;
+                        break;
+                    case 'FINISHED':
+                        statusText.textContent = 'お疲れ様でした！';
+                        statusText.className = 'status-text';
+                        statusText.style.color = 'var(--text-primary)';
+                        buzzerBtn.disabled = true;
+                        buzzerBtn.classList.remove('pressed', 'winner', 'locked');
+                        buzzerBtn.style.borderColor = 'var(--accent-purple)';
+                        buzzerText.textContent = 'THANK YOU!';
+                        buzzerText.style.fontSize = '1.5rem';
                         break;
                 }
             }

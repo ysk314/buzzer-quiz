@@ -230,6 +230,9 @@
                     <button class="btn btn-primary btn-large" id="autoJoinBtn">
                         🚀 ホストとして開始
                     </button>
+                    <button class="btn btn-secondary mt-md" id="settingsTogglePre" style="width: 100%;">
+                        ⚙️ ルール設定
+                    </button>
                 </div>
             </div>
         </div>
@@ -254,12 +257,16 @@
                 </div>
                 <div id="roomStateBadge" class="badge badge-waiting">WAITING</div>
             </div>
-            <a href="index.html" class="btn btn-small btn-secondary">戻る</a>
+            <div style="display: flex; gap: 8px;">
+                <button id="finishGameBtn" class="btn btn-small btn-danger">終了</button>
+                <a href="index.html" class="btn btn-small btn-secondary">戻る</a>
+            </div>
         </header>
 
         <div class="main-grid">
             <div class="card control-center">
-                <h2>コントロール</h2>
+                <h2>コントロール <span id="questionNumberDisplay"
+                        style="font-size: 0.8em; margin-left: 10px; color: var(--accent-cyan);">第1問</span></h2>
 
                 <!-- 先着者表示 -->
                 <div id="winnerDisplay" class="winner-display hidden mt-lg">
@@ -507,9 +514,9 @@
                 playSound('wrong');
                 await roomManager.judge('wrong');
 
-                // 自動再開: 0.5秒後にOpen
+                // 自動再開: 0.5秒後にOpen (音なし)
                 setTimeout(async () => {
-                    playSound('open');
+                    // playSound('open'); // 効果音調整
                     await roomManager.openBuzz();
                 }, 500);
             });
@@ -527,6 +534,18 @@
 
             document.getElementById('closeSettings').addEventListener('click', () => {
                 document.getElementById('settingsOverlay').classList.remove('active');
+            });
+
+            // 準備画面の設定ボタン
+            document.getElementById('settingsTogglePre').addEventListener('click', () => {
+                document.getElementById('settingsOverlay').classList.add('active');
+            });
+
+            // 終了ボタン
+            document.getElementById('finishGameBtn').addEventListener('click', async () => {
+                if (confirm('クイズを終了しますか？\n参加者に結果画面が表示されます。')) {
+                    await roomManager.finishGame();
+                }
             });
 
             // 設定オプション
@@ -559,7 +578,29 @@
                 const waitingDisplay = document.getElementById('waitingDisplay');
 
                 badge.className = 'badge';
-                nextBtn.disabled = !room.canAdvance;
+                badge.className = 'badge';
+                // nextBtn.disabled = !room.canAdvance; // 常に押せるように変更
+
+                // Openボタン文言制御
+                if ((room.roundNumber === 1 || !room.roundNumber) && room.roomState === 'WAITING' && !room.openTimestamp) {
+                    openBtn.textContent = '🚀 クイズスタート';
+                } else {
+                    openBtn.textContent = '🔓 全員ペナルティ解除';
+                }
+
+                // 問題数表示更新
+                document.getElementById('questionNumberDisplay').textContent = `第${room.roundNumber || 1}問`;
+
+                // 終了状態
+                if (room.roomState === 'FINISHED') {
+                    badge.classList.add('badge-locked');
+                    badge.textContent = 'FINISHED';
+                    openBtn.disabled = true;
+                    document.getElementById('judgeButtons').classList.add('hidden');
+                    document.getElementById('waitingDisplay').innerHTML = '<p class="text-accent">クイズ終了！</p>';
+                    document.getElementById('waitingDisplay').classList.remove('hidden');
+                    return;
+                }
 
                 // 早押し音のトリガー (OPEN -> LOCKED)
                 if (previousState === 'OPEN' && room.roomState === 'LOCKED') {

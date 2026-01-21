@@ -14,6 +14,29 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
+// アプリバージョン
+window.APP_VERSION = 'v1.1.0';
+
+document.addEventListener('DOMContentLoaded', () => {
+    // フッター追加
+    const footer = document.createElement('footer');
+    footer.style.textAlign = 'center';
+    footer.style.padding = '20px';
+    footer.style.opacity = '0.6';
+    footer.style.fontSize = '0.8rem';
+    footer.style.marginTop = 'auto';
+    footer.innerHTML = `Buzzer Quiz App ${window.APP_VERSION}`;
+
+    // 特定のコンテナがあればそこに追加、なければbody末尾
+    const container = document.querySelector('.host-container, .player-container, .setup-card, .join-card');
+    if (container) {
+        // containerがflex columnの場合、最後に追加すれば下にくる
+        container.appendChild(footer);
+    } else {
+        document.body.appendChild(footer);
+    }
+});
+
 // ユーティリティ関数
 function generateRoomCode() {
     // 6桁の数字
@@ -321,6 +344,15 @@ class RoomManager {
     // ルール更新
     async updateRules(newRules) {
         await this.roomRef.child('rules').update(newRules);
+    }
+
+    // ゲーム終了
+    async finishGame() {
+        await this.roomRef.update({
+            roomState: 'FINISHED',
+            canAdvance: false,
+            winner: null
+        });
     }
 
     // クリーンアップ
