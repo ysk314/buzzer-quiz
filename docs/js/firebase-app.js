@@ -15,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // アプリバージョン
-const APP_VERSION = 'v1.2.9'; // v1.2.9に更新
+const APP_VERSION = 'v1.3.0'; // v1.3.0に更新
 window.APP_VERSION = APP_VERSION; // グローバルスコープでRoomManagerを使えるようにする
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -350,7 +350,9 @@ class RoomManager {
             // 回答中だった人の状態をREADYに戻す
             const winnerToken = room.backup.winner.playerToken;
             if (updates.players && updates.players[winnerToken]) {
+                // オブジェクトのディープコピーが必要な場合があるが、ここでは直接書き換え
                 updates.players[winnerToken].playerState = 'READY';
+                // ペナルティNextRoundも巻き戻す場合に備え既存のバックアップ値を尊重
             }
         }
 
