@@ -287,38 +287,41 @@
 
                 <!-- コントロールエリア -->
                 <div id="controlSection">
-                    <!-- 先着者表示 -->
-                    <div id="winnerDisplay" class="winner-display hidden mt-lg">
-                        <p class="text-muted">先着</p>
-                        <div class="winner-name" id="winnerName">---</div>
-                        <div class="winner-time"><span id="reactionTime">0</span> ms</div>
+                    <!-- 状態表示エリア（固定高さ） -->
+                    <div style="min-height: 280px;">
+                        <!-- 先着者表示 -->
+                        <div id="winnerDisplay" class="winner-display hidden mt-lg">
+                            <p class="text-muted">先着</p>
+                            <div class="winner-name" id="winnerName">---</div>
+                            <div class="winner-time"><span id="reactionTime">0</span> ms</div>
+                        </div>
+
+                        <!-- 待機時表示 -->
+                        <div id="waitingDisplay" class="mt-lg">
+                            <p class="text-secondary" style="font-size: 1.2rem;">参加者が揃ったら、「クイズスタート」をタップ！</p>
+                        </div>
+
+                        <!-- 判定ボタン -->
+                        <div id="judgeButtons" class="judge-buttons hidden">
+                            <button class="btn btn-success judge-btn" id="correctBtn">○</button>
+                            <button class="btn btn-danger judge-btn" id="wrongBtn">×</button>
+                        </div>
+
+                        <!-- 進行ボタン -->
+                        <div class="control-buttons">
+                            <button class="btn btn-primary btn-large" id="openBtn">
+                                🔓 回答再開 (Open)
+                            </button>
+                            <button class="btn btn-secondary btn-large" id="nextBtn">
+                                ➡️ 次の問題へ
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Undoボタン -->
                     <button id="undoBtn" class="btn btn-small btn-secondary hidden" style="width: 100%; margin-top: 1rem;">
                         ↩️ 前に戻す (Undo)
                     </button>
-
-                    <!-- 待機時表示 -->
-                    <div id="waitingDisplay" class="mt-lg">
-                        <p class="text-secondary" style="font-size: 1.2rem;">参加者が揃ったら、「クイズスタート」をタップ！</p>
-                    </div>
-
-                    <!-- 判定ボタン -->
-                    <div id="judgeButtons" class="judge-buttons hidden">
-                        <button class="btn btn-success judge-btn" id="correctBtn">○</button>
-                        <button class="btn btn-danger judge-btn" id="wrongBtn">×</button>
-                    </div>
-
-                    <!-- 進行ボタン -->
-                    <div class="control-buttons">
-                        <button class="btn btn-primary btn-large" id="openBtn">
-                            🔓 回答再開 (Open)
-                        </button>
-                        <button class="btn btn-secondary btn-large" id="nextBtn">
-                            ➡️ 次の問題へ
-                        </button>
-                    </div>
 
                     <!-- 終了ボタンエリア -->
                     <div class="mt-lg pt-md" style="border-top: 1px solid var(--border-color);">
