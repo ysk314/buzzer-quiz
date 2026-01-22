@@ -829,18 +829,34 @@
                         const judgementDisplay = document.getElementById('judgementDisplay');
                         const judgementIcon = document.getElementById('judgementIcon');
                         
-                        // canAdvance = true なら判定確定、◯/×を表示
+                        // canAdvance = true なら判定確定
                         if (room.canAdvance) {
-                            // 正解の場合は大きな◯を表示
-                            judgementIcon.textContent = '◯';
-                            judgementIcon.style.color = 'var(--accent-green)';
-                            judgementDisplay.classList.remove('hidden');
-                            winnerDisplay.classList.add('hidden');
-                            
-                            // 3秒後に「次の問題へ」ボタンを表示
-                            setTimeout(() => {
-                                nextBtn.classList.remove('hidden');
-                            }, 3000);
+                            // roomState = 'WAITING' なら正解、'LOCKED' なら不正解
+                            if (room.roomState === 'WAITING') {
+                                // 正解：大きな◯を表示
+                                judgementIcon.textContent = '◯';
+                                judgementIcon.style.color = 'var(--accent-green)';
+                                judgementDisplay.classList.remove('hidden');
+                                winnerDisplay.classList.add('hidden');
+                                judgeButtons.classList.add('hidden');
+                                
+                                // 3秒後に「次の問題へ」ボタンを表示
+                                setTimeout(() => {
+                                    nextBtn.classList.remove('hidden');
+                                }, 3000);
+                            } else {
+                                // 不正解：大きな×を表示
+                                judgementIcon.textContent = '×';
+                                judgementIcon.style.color = 'var(--accent-red)';
+                                judgementDisplay.classList.remove('hidden');
+                                winnerDisplay.classList.add('hidden');
+                                judgeButtons.classList.add('hidden');
+                                
+                                // 1.5秒後に判定結果を隠してペナルティ解除ボタンを表示
+                                setTimeout(() => {
+                                    judgementDisplay.classList.add('hidden');
+                                }, 1500);
+                            }
                         } else if (room.winner) {
                             // 判定前：先着者情報のみ表示
                             winnerDisplay.classList.remove('hidden');
@@ -848,16 +864,9 @@
                             document.getElementById('reactionTime').textContent = room.winner.reactionTime || 0;
                             judgementDisplay.classList.add('hidden');
                         } else {
-                            // 不正解の場合は大きな×を表示
-                            judgementIcon.textContent = '×';
-                            judgementIcon.style.color = 'var(--accent-red)';
-                            judgementDisplay.classList.remove('hidden');
+                            // その他：何も表示
+                            judgementDisplay.classList.add('hidden');
                             winnerDisplay.classList.add('hidden');
-                            
-                            // 1.5秒後に判定結果を隠してペナルティ解除ボタンを表示
-                            setTimeout(() => {
-                                judgementDisplay.classList.add('hidden');
-                            }, 1500);
                         }
                         break;
                 }
