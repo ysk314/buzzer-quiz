@@ -839,6 +839,8 @@
                                 judgementDisplay.classList.remove('hidden');
                                 winnerDisplay.classList.add('hidden');
                                 judgeButtons.classList.add('hidden');
+                                openBtn.classList.add('hidden');
+                                nextBtn.classList.add('hidden');
                                 
                                 // 3秒後に「次の問題へ」ボタンを表示
                                 setTimeout(() => {
@@ -851,10 +853,13 @@
                                 judgementDisplay.classList.remove('hidden');
                                 winnerDisplay.classList.add('hidden');
                                 judgeButtons.classList.add('hidden');
+                                nextBtn.classList.add('hidden');
                                 
-                                // 1.5秒後に判定結果を隠してペナルティ解除ボタンを表示
+                                // 1.5秒後に判定結果を隠して「全員ペナルティ解除」と「次の問題へ」ボタンを表示
                                 setTimeout(() => {
                                     judgementDisplay.classList.add('hidden');
+                                    openBtn.classList.remove('hidden');
+                                    nextBtn.classList.remove('hidden');
                                 }, 1500);
                             }
                         } else if (room.winner) {
