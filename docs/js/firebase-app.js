@@ -43,7 +43,7 @@ if (document.readyState === 'loading') {
 }
 
 // アプリバージョン
-const APP_VERSION = 'v1.5.8'; // v1.5.8に更新（判定表示タイミング修正、状態チェック削除）
+const APP_VERSION = 'v1.5.9'; // v1.5.9に更新（正解表示の待機時間短縮）
 window.APP_VERSION = APP_VERSION; // グローバルスコープで使用可能
 
 let appInitialized = false;
