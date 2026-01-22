@@ -1009,7 +1009,22 @@
 
                 const teamArray = Object.values(teams || {});
                 if (teamArray.length === 0) {
-                    playerList.innerHTML = '<p class="text-muted">チーム未作成です</p>';
+                    const sorted = playerArray.sort((a, b) => {
+                        const aScore = a.individualScore !== undefined ? a.individualScore : (a.score || 0);
+                        const bScore = b.individualScore !== undefined ? b.individualScore : (b.score || 0);
+                        return bScore - aScore;
+                    });
+
+                    playerList.innerHTML = sorted.map(p => {
+                        const offlineClass = p.connectionStatus === 'offline' ? 'offline' : '';
+                        const score = p.individualScore !== undefined ? p.individualScore : (p.score || 0);
+                        return `
+                            <div class="player-item ${offlineClass}">
+                                <span class="player-name">${escapeHtml(p.displayName)}</span>
+                                <span class="player-score">${score}pt</span>
+                            </div>
+                        `;
+                    }).join('');
                     return;
                 }
 
@@ -1260,7 +1275,7 @@
             vEl.style.right = '10px';
             vEl.style.color = 'rgba(255,255,255,0.3)';
             vEl.style.fontSize = '0.8rem';
-            vEl.textContent = window.APP_VERSION || 'v1.6.0';
+            vEl.textContent = window.APP_VERSION || 'v1.6.1';
             document.body.appendChild(vEl);
         });
     </script>

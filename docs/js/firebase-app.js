@@ -43,7 +43,7 @@ if (document.readyState === 'loading') {
 }
 
 // アプリバージョン
-const APP_VERSION = 'v1.6.0'; // v1.6.0に更新（チーム戦対応）
+const APP_VERSION = 'v1.6.1'; // v1.6.1に更新（チーム未作成時の個人ランキング表示）
 window.APP_VERSION = APP_VERSION; // グローバルスコープで使用可能
 
 let appInitialized = false;
