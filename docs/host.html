@@ -288,7 +288,12 @@
                 <!-- コントロールエリア -->
                 <div id="controlSection">
                     <!-- 状態表示エリア（固定高さ） -->
-                    <div style="min-height: 280px;">
+                    <div style="min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                        <!-- 判定結果表示（正解/不正解） -->
+                        <div id="judgementDisplay" class="hidden" style="text-align: center; font-size: 100px; font-weight: bold; margin-bottom: 20px;">
+                            <span id="judgementIcon">○</span>
+                        </div>
+
                         <!-- 先着者表示 -->
                         <div id="winnerDisplay" class="winner-display hidden mt-lg">
                             <p class="text-muted">先着</p>
@@ -802,6 +807,8 @@
                         judgeButtons.classList.add('hidden');
                         winnerDisplay.classList.add('hidden');
                         waitingDisplay.classList.remove('hidden');
+                        // 判定結果表示を隠す
+                        document.getElementById('judgementDisplay').classList.add('hidden');
                         break;
                     case 'OPEN':
                         badge.classList.add('badge-open');
@@ -809,16 +816,42 @@
                         judgeButtons.classList.add('hidden');
                         winnerDisplay.classList.add('hidden');
                         waitingDisplay.classList.add('hidden');
+                        // 判定結果表示を隠す
+                        document.getElementById('judgementDisplay').classList.add('hidden');
                         break;
                     case 'LOCKED':
                         badge.classList.add('badge-locked');
                         badge.textContent = 'LOCKED';
                         judgeButtons.classList.remove('hidden');
                         waitingDisplay.classList.add('hidden');
+                        
+                        // 判定結果表示
+                        const judgementDisplay = document.getElementById('judgementDisplay');
+                        const judgementIcon = document.getElementById('judgementIcon');
                         if (room.winner) {
                             winnerDisplay.classList.remove('hidden');
                             document.getElementById('winnerName').textContent = room.winner.displayName;
                             document.getElementById('reactionTime').textContent = room.winner.reactionTime || 0;
+                            
+                            // 正解の場合は大きな◯を表示
+                            judgementIcon.textContent = '◯';
+                            judgementIcon.style.color = 'var(--accent-green)';
+                            judgementDisplay.classList.remove('hidden');
+                            
+                            // 3秒後に「次の問題へ」ボタンを表示
+                            setTimeout(() => {
+                                nextBtn.classList.remove('hidden');
+                            }, 3000);
+                        } else {
+                            // 不正解の場合は大きな×を表示
+                            judgementIcon.textContent = '×';
+                            judgementIcon.style.color = 'var(--accent-red)';
+                            judgementDisplay.classList.remove('hidden');
+                            
+                            // 1.5秒後に判定結果を隠してペナルティ解除ボタンを表示
+                            setTimeout(() => {
+                                judgementDisplay.classList.add('hidden');
+                            }, 1500);
                         }
                         break;
                 }
