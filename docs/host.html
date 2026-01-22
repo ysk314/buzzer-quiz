@@ -825,6 +825,10 @@
                         judgeButtons.classList.remove('hidden');
                         waitingDisplay.classList.add('hidden');
                         
+                        // ボタンを初期化
+                        openBtn.classList.add('hidden');
+                        nextBtn.classList.add('hidden');
+                        
                         // 判定結果表示（判定確定時のみ）
                         const judgementDisplay = document.getElementById('judgementDisplay');
                         const judgementIcon = document.getElementById('judgementIcon');
@@ -833,33 +837,36 @@
                         if (room.canAdvance) {
                             // roomState = 'WAITING' なら正解、'LOCKED' なら不正解
                             if (room.roomState === 'WAITING') {
-                                // 正解：大きな◯を表示
+                                // 正解：大きな◯だけを表示
                                 judgementIcon.textContent = '◯';
                                 judgementIcon.style.color = 'var(--accent-green)';
+                                judgementDisplay.classList.remove('hidden');
+                                winnerDisplay.classList.add('hidden');
+                                judgeButtons.classList.add('hidden');
+                                
+                                // 3秒後に「次の問題へ」ボタンを表示
+                                setTimeout(() => {
+                                    if (room.canAdvance && room.roomState === 'WAITING') {
+                                        nextBtn.classList.remove('hidden');
+                                    }
+                                }, 3000);
+                            } else {
+                                // 不正解：大きな×だけを表示（ボタンは隠す）
+                                judgementIcon.textContent = '×';
+                                judgementIcon.style.color = 'var(--accent-red)';
                                 judgementDisplay.classList.remove('hidden');
                                 winnerDisplay.classList.add('hidden');
                                 judgeButtons.classList.add('hidden');
                                 openBtn.classList.add('hidden');
                                 nextBtn.classList.add('hidden');
                                 
-                                // 3秒後に「次の問題へ」ボタンを表示
+                                // 1.5秒後に判定結果を隠して「全員ペナルティ解除」と「次の問題へ」ボタンを同時に表示
                                 setTimeout(() => {
-                                    nextBtn.classList.remove('hidden');
-                                }, 3000);
-                            } else {
-                                // 不正解：大きな×を表示
-                                judgementIcon.textContent = '×';
-                                judgementIcon.style.color = 'var(--accent-red)';
-                                judgementDisplay.classList.remove('hidden');
-                                winnerDisplay.classList.add('hidden');
-                                judgeButtons.classList.add('hidden');
-                                nextBtn.classList.add('hidden');
-                                
-                                // 1.5秒後に判定結果を隠して「全員ペナルティ解除」と「次の問題へ」ボタンを表示
-                                setTimeout(() => {
-                                    judgementDisplay.classList.add('hidden');
-                                    openBtn.classList.remove('hidden');
-                                    nextBtn.classList.remove('hidden');
+                                    if (room.canAdvance && room.roomState === 'LOCKED') {
+                                        judgementDisplay.classList.add('hidden');
+                                        openBtn.classList.remove('hidden');
+                                        nextBtn.classList.remove('hidden');
+                                    }
                                 }, 1500);
                             }
                         } else if (room.winner) {
