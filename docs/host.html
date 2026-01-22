@@ -408,6 +408,9 @@
             let roomCode = null;
             let currentRules = {};
             let previousState = null; // 前回のステートを保持
+            let judgementTimeoutId = null;
+            let judgementKey = null;
+            let judgementResolvedKey = null;
 
             const setupScreen = document.getElementById('setupScreen');
             const mainScreen = document.getElementById('mainScreen');
@@ -670,6 +673,8 @@
                 const judgeButtons = document.getElementById('judgeButtons');
                 const winnerDisplay = document.getElementById('winnerDisplay');
                 const waitingDisplay = document.getElementById('waitingDisplay');
+                const judgementDisplay = document.getElementById('judgementDisplay');
+                const judgementIcon = document.getElementById('judgementIcon');
                 const controlSection = document.getElementById('controlSection');
                 const finalRankingSection = document.getElementById('finalRankingSection');
 
@@ -769,6 +774,19 @@
                     waitingDisplay.innerHTML = '';
                 }
 
+                const isJudgedCorrect = room.roomState === 'WAITING' && room.canAdvance && room.openTimestamp;
+                const isJudgedWrong = room.roomState === 'LOCKED' && room.canAdvance && !room.winner;
+                const judgementStateKey = isJudgedCorrect ? `correct-${rNum}` : isJudgedWrong ? `wrong-${rNum}` : null;
+
+                if (!judgementStateKey) {
+                    if (judgementTimeoutId) {
+                        clearTimeout(judgementTimeoutId);
+                        judgementTimeoutId = null;
+                    }
+                    judgementKey = null;
+                    judgementResolvedKey = null;
+                }
+
                 // 「次の問題へ」ボタンの表示制御:
                 // 1. 正解が出た後 (WAITING 且つ canAdvance=true) のみ表示
                 // 2. 第1問開始前 (WAITING 且つ openTimestampなし) は非表示（クイズスタートボタンがあるため）
@@ -806,9 +824,38 @@
                         badge.textContent = 'WAITING';
                         judgeButtons.classList.add('hidden');
                         winnerDisplay.classList.add('hidden');
-                        waitingDisplay.classList.remove('hidden');
-                        // 判定結果表示を隠す
-                        document.getElementById('judgementDisplay').classList.add('hidden');
+                        if (isJudgedCorrect) {
+                            // 正解：大きな◯だけを表示
+                            if (judgementResolvedKey === judgementStateKey) {
+                                if (judgementDisplay) judgementDisplay.classList.add('hidden');
+                                nextBtn.classList.remove('hidden');
+                                openBtn.classList.add('hidden');
+                                waitingDisplay.classList.add('hidden');
+                            } else {
+                                if (judgementIcon) {
+                                    judgementIcon.textContent = '◯';
+                                    judgementIcon.style.color = 'var(--accent-green)';
+                                }
+                                if (judgementDisplay) judgementDisplay.classList.remove('hidden');
+                                waitingDisplay.classList.add('hidden');
+                                openBtn.classList.add('hidden');
+                                nextBtn.classList.add('hidden');
+
+                                if (judgementKey !== judgementStateKey) {
+                                    if (judgementTimeoutId) clearTimeout(judgementTimeoutId);
+                                    judgementKey = judgementStateKey;
+                                    judgementTimeoutId = setTimeout(() => {
+                                        judgementTimeoutId = null;
+                                        judgementResolvedKey = judgementStateKey;
+                                        if (judgementDisplay) judgementDisplay.classList.add('hidden');
+                                        nextBtn.classList.remove('hidden');
+                                    }, 3000);
+                                }
+                            }
+                        } else {
+                            waitingDisplay.classList.remove('hidden');
+                            if (judgementDisplay) judgementDisplay.classList.add('hidden');
+                        }
                         break;
                     case 'OPEN':
                         badge.classList.add('badge-open');
@@ -822,62 +869,53 @@
                     case 'LOCKED':
                         badge.classList.add('badge-locked');
                         badge.textContent = 'LOCKED';
-                        judgeButtons.classList.remove('hidden');
                         waitingDisplay.classList.add('hidden');
                         
                         // ボタンを初期化
                         openBtn.classList.add('hidden');
                         nextBtn.classList.add('hidden');
+                        judgeButtons.classList.add('hidden');
                         
                         // 判定結果表示（判定確定時のみ）
-                        const judgementDisplay = document.getElementById('judgementDisplay');
-                        const judgementIcon = document.getElementById('judgementIcon');
-                        
-                        // canAdvance = true なら判定確定
-                        if (room.canAdvance) {
-                            // roomState = 'WAITING' なら正解、'LOCKED' なら不正解
-                            if (room.roomState === 'WAITING') {
-                                // 正解：大きな◯だけを表示
-                                judgementIcon.textContent = '◯';
-                                judgementIcon.style.color = 'var(--accent-green)';
-                                judgementDisplay.classList.remove('hidden');
-                                winnerDisplay.classList.add('hidden');
-                                judgeButtons.classList.add('hidden');
-                                
-                                // 3秒後に「次の問題へ」ボタンを表示
-                                setTimeout(() => {
-                                    if (room.canAdvance && room.roomState === 'WAITING') {
-                                        nextBtn.classList.remove('hidden');
-                                    }
-                                }, 3000);
+                        if (isJudgedWrong) {
+                            // 不正解：大きな×だけを表示（ボタンは隠す）
+                            if (judgementResolvedKey === judgementStateKey) {
+                                if (judgementDisplay) judgementDisplay.classList.add('hidden');
+                                openBtn.classList.remove('hidden');
+                                nextBtn.classList.remove('hidden');
                             } else {
-                                // 不正解：大きな×だけを表示（ボタンは隠す）
-                                judgementIcon.textContent = '×';
-                                judgementIcon.style.color = 'var(--accent-red)';
-                                judgementDisplay.classList.remove('hidden');
+                                if (judgementIcon) {
+                                    judgementIcon.textContent = '×';
+                                    judgementIcon.style.color = 'var(--accent-red)';
+                                }
+                                if (judgementDisplay) judgementDisplay.classList.remove('hidden');
                                 winnerDisplay.classList.add('hidden');
-                                judgeButtons.classList.add('hidden');
                                 openBtn.classList.add('hidden');
                                 nextBtn.classList.add('hidden');
-                                
-                                // 1.5秒後に判定結果を隠して「全員ペナルティ解除」と「次の問題へ」ボタンを同時に表示
-                                setTimeout(() => {
-                                    if (room.canAdvance && room.roomState === 'LOCKED') {
-                                        judgementDisplay.classList.add('hidden');
+                                judgeButtons.classList.add('hidden');
+
+                                if (judgementKey !== judgementStateKey) {
+                                    if (judgementTimeoutId) clearTimeout(judgementTimeoutId);
+                                    judgementKey = judgementStateKey;
+                                    judgementTimeoutId = setTimeout(() => {
+                                        judgementTimeoutId = null;
+                                        judgementResolvedKey = judgementStateKey;
+                                        if (judgementDisplay) judgementDisplay.classList.add('hidden');
                                         openBtn.classList.remove('hidden');
                                         nextBtn.classList.remove('hidden');
-                                    }
-                                }, 1500);
+                                    }, 1500);
+                                }
                             }
                         } else if (room.winner) {
                             // 判定前：先着者情報のみ表示
+                            judgeButtons.classList.remove('hidden');
                             winnerDisplay.classList.remove('hidden');
                             document.getElementById('winnerName').textContent = room.winner.displayName;
                             document.getElementById('reactionTime').textContent = room.winner.reactionTime || 0;
-                            judgementDisplay.classList.add('hidden');
+                            if (judgementDisplay) judgementDisplay.classList.add('hidden');
                         } else {
                             // その他：何も表示
-                            judgementDisplay.classList.add('hidden');
+                            if (judgementDisplay) judgementDisplay.classList.add('hidden');
                             winnerDisplay.classList.add('hidden');
                         }
                         break;
