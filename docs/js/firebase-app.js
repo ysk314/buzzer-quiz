@@ -43,7 +43,7 @@ if (document.readyState === 'loading') {
 }
 
 // アプリバージョン
-const APP_VERSION = 'v1.5.7'; // v1.5.7に更新（判定結果表示とボタンタイミング修正）
+const APP_VERSION = 'v1.5.8'; // v1.5.8に更新（判定表示タイミング修正、状態チェック削除）
 window.APP_VERSION = APP_VERSION; // グローバルスコープで使用可能
 
 let appInitialized = false;
