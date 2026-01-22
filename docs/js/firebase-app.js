@@ -43,7 +43,7 @@ if (document.readyState === 'loading') {
 }
 
 // アプリバージョン
-const APP_VERSION = 'v1.5.3'; // v1.5.3に更新（Firebase初期化修正）
+const APP_VERSION = 'v1.5.4'; // v1.5.4に更新（バージョン管理統一）
 window.APP_VERSION = APP_VERSION; // グローバルスコープで使用可能
 
 let appInitialized = false;
