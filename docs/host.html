@@ -825,28 +825,34 @@
                         judgeButtons.classList.remove('hidden');
                         waitingDisplay.classList.add('hidden');
                         
-                        // 判定結果表示
+                        // 判定結果表示（判定確定時のみ）
                         const judgementDisplay = document.getElementById('judgementDisplay');
                         const judgementIcon = document.getElementById('judgementIcon');
-                        if (room.winner) {
-                            winnerDisplay.classList.remove('hidden');
-                            document.getElementById('winnerName').textContent = room.winner.displayName;
-                            document.getElementById('reactionTime').textContent = room.winner.reactionTime || 0;
-                            
+                        
+                        // canAdvance = true なら判定確定、◯/×を表示
+                        if (room.canAdvance) {
                             // 正解の場合は大きな◯を表示
                             judgementIcon.textContent = '◯';
                             judgementIcon.style.color = 'var(--accent-green)';
                             judgementDisplay.classList.remove('hidden');
+                            winnerDisplay.classList.add('hidden');
                             
                             // 3秒後に「次の問題へ」ボタンを表示
                             setTimeout(() => {
                                 nextBtn.classList.remove('hidden');
                             }, 3000);
+                        } else if (room.winner) {
+                            // 判定前：先着者情報のみ表示
+                            winnerDisplay.classList.remove('hidden');
+                            document.getElementById('winnerName').textContent = room.winner.displayName;
+                            document.getElementById('reactionTime').textContent = room.winner.reactionTime || 0;
+                            judgementDisplay.classList.add('hidden');
                         } else {
                             // 不正解の場合は大きな×を表示
                             judgementIcon.textContent = '×';
                             judgementIcon.style.color = 'var(--accent-red)';
                             judgementDisplay.classList.remove('hidden');
+                            winnerDisplay.classList.add('hidden');
                             
                             // 1.5秒後に判定結果を隠してペナルティ解除ボタンを表示
                             setTimeout(() => {
