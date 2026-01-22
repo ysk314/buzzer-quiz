@@ -43,7 +43,7 @@ if (document.readyState === 'loading') {
 }
 
 // アプリバージョン
-const APP_VERSION = 'v1.5.9'; // v1.5.9に更新（正解表示の待機時間短縮）
+const APP_VERSION = 'v1.6.0'; // v1.6.0に更新（チーム戦対応）
 window.APP_VERSION = APP_VERSION; // グローバルスコープで使用可能
 
 let appInitialized = false;
@@ -91,8 +91,58 @@ const DEFAULT_RULES = {
     wrongPoints: 0,
     minScore: 0,
     allowNegative: false,
-    wrongAction: 'reopen'
+    wrongAction: 'reopen',
+    teamMode: false,
+    numTeams: 2
 };
+
+const TEAM_NAMES = [
+    'サンダー', 'フェニックス', 'オーロラ', 'テンペスト', 'グリフォン', 'ノヴァ', 'コスモス', 'ルミナス',
+    'アトラス', 'ゼファー', 'ブリザード', 'エクリプス', 'ストーム', 'ブレイズ', 'タイタン', 'セイバー',
+    'ヴァイパー', 'ファルコン', 'ドラゴン', 'ユニコーン', 'ミラージュ', 'ステラ', 'プラズマ', 'ラディアント',
+    'オリオン', 'リゲル', 'シリウス', 'ベガ', 'アルタイル', 'カノープス', 'カペラ', 'ポラリス',
+    'レグルス', 'スピカ', 'アンタレス', 'アルデバラン', 'ベテルギウス', 'アークティック', 'フレイム', 'ガーネット',
+    'サファイア', 'エメラルド', 'トパーズ', 'ルビー', 'オブシディアン', 'アメジスト', 'クォーツ', 'アクア',
+    'コバルト', 'シトリン', 'オニキス', 'パール', 'コメット', 'メテオ', 'ギャラクシー', 'ネビュラ',
+    'ボルテックス', 'インフェルノ', 'サイクロン', 'マグマ', 'グレイシャー', 'モンスーン', 'ハリケーン', 'タイフーン',
+    'エレメント', 'エーテル', 'オメガ', 'アルファ', 'シグマ', 'カイ', 'ラムダ', 'デルタ',
+    'プロトン', 'ニュートロン', 'クエーサー', 'パルサー', 'メサ', 'アストラ', 'アリア', 'カリバー',
+    'ランサー', 'レイダー', 'ジャガー', 'パンサー', 'リンクス', 'ウルフ', 'フォックス', 'ホーク',
+    'バイソン', 'レイヴン', 'リオン', 'グリズリー', 'コヨーテ', 'ハスキー', 'クーガー', 'レオパード',
+    'エンバー', 'ブリーズ', 'ドリフト', 'グリット', 'ブロッサム', 'ブリッジ', 'プラネット', 'ソニック',
+    'ハーモニー', 'フロンティア', 'サーガ', 'クエスト', 'レジェンド', 'ライジング', 'エヴォルブ', 'ユニティ'
+];
+
+function shuffleArray(items) {
+    const arr = items.slice();
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+function pickTeamNames(count) {
+    const pool = shuffleArray(TEAM_NAMES);
+    if (pool.length >= count) {
+        return pool.slice(0, count);
+    }
+    const names = pool.slice();
+    while (names.length < count) {
+        names.push(`チーム${names.length + 1}`);
+    }
+    return names;
+}
+
+function generateTeamColors(count) {
+    const colors = [];
+    if (count <= 0) return colors;
+    for (let i = 0; i < count; i++) {
+        const hue = Math.round((360 / count) * i);
+        colors.push(`hsl(${hue}, 70%, 55%)`);
+    }
+    return colors;
+}
 
 // ルーム管理クラス
 class RoomManager {
@@ -125,6 +175,7 @@ class RoomManager {
             openTimestamp: null,
             winner: null,
             players: {},
+            teams: {},
             createdAt: firebase.database.ServerValue.TIMESTAMP
         };
 
@@ -183,6 +234,8 @@ class RoomManager {
             playerToken,
             displayName: finalName,
             score: 0,
+            individualScore: 0,
+            teamId: null,
             playerState: 'READY',
             penaltyNextRound: false,
             connectionStatus: 'online',
@@ -241,6 +294,77 @@ class RoomManager {
         if (Object.keys(updates).length > 0) {
             await this.roomRef.update(updates);
         }
+    }
+
+    // チーム作成（ホスト操作）
+    async createTeams(requestedTeams) {
+        const roomSnapshot = await this.roomRef.once('value');
+        const room = roomSnapshot.val();
+        if (!room) return { success: false, error: 'ROOM_NOT_FOUND' };
+
+        const players = room.players || {};
+        const playerTokens = Object.keys(players);
+        const playerCount = playerTokens.length;
+        const maxTeams = Math.floor(playerCount / 2);
+
+        if (playerCount < 4 || maxTeams < 2) {
+            return { success: false, error: 'NOT_ENOUGH_PLAYERS' };
+        }
+
+        let teamCount = parseInt(requestedTeams, 10);
+        if (!teamCount || Number.isNaN(teamCount)) {
+            teamCount = room.rules && room.rules.numTeams ? room.rules.numTeams : 2;
+        }
+        teamCount = Math.max(2, Math.min(teamCount, maxTeams));
+
+        const teamIds = [];
+        const teamNames = pickTeamNames(teamCount);
+        const teamColors = generateTeamColors(teamCount);
+        const teams = {};
+        for (let i = 0; i < teamCount; i++) {
+            const teamId = `team_${i + 1}`;
+            teamIds.push(teamId);
+            teams[teamId] = {
+                teamId,
+                teamName: teamNames[i],
+                score: 0,
+                members: [],
+                color: teamColors[i]
+            };
+        }
+
+        const shuffledPlayers = shuffleArray(playerTokens);
+        const updates = {
+            teams,
+            'rules/teamMode': true,
+            'rules/numTeams': teamCount
+        };
+
+        const teamScores = {};
+        teamIds.forEach((teamId) => {
+            teamScores[teamId] = 0;
+        });
+
+        shuffledPlayers.forEach((token, idx) => {
+            const teamId = teamIds[idx % teamCount];
+            const individualScore = players[token].individualScore !== undefined
+                ? players[token].individualScore
+                : (players[token].score || 0);
+
+            teams[teamId].members.push(token);
+            teamScores[teamId] += individualScore;
+
+            updates[`players/${token}/teamId`] = teamId;
+            updates[`players/${token}/individualScore`] = individualScore;
+            updates[`players/${token}/score`] = individualScore;
+        });
+
+        teamIds.forEach((teamId) => {
+            teams[teamId].score = teamScores[teamId];
+        });
+
+        await this.roomRef.update(updates);
+        return { success: true, teamCount };
     }
 
     // 早押し
@@ -304,6 +428,7 @@ class RoomManager {
         // 判定前の状態をバックアップ（Undo用）
         const backup = {
             players: room.players,
+            teams: room.teams || null,
             roomState: room.roomState,
             roundNumber: room.roundNumber,
             winner: room.winner,
@@ -320,8 +445,18 @@ class RoomManager {
 
         const updates = {};
 
+        const teamMode = rules && rules.teamMode;
+        const baseScore = player.individualScore !== undefined ? player.individualScore : (player.score || 0);
+        const teamId = player.teamId;
+        const team = teamMode && room.teams && teamId ? room.teams[teamId] : null;
+
         if (result === 'correct') {
-            updates[`players/${winnerToken}/score`] = (player.score || 0) + rules.correctPoints;
+            const newIndividualScore = baseScore + rules.correctPoints;
+            updates[`players/${winnerToken}/individualScore`] = newIndividualScore;
+            updates[`players/${winnerToken}/score`] = newIndividualScore;
+            if (team) {
+                updates[`teams/${teamId}/score`] = (team.score || 0) + rules.correctPoints;
+            }
             updates['roomState'] = 'WAITING';
             updates['canAdvance'] = true;
             updates['winner'] = null;
@@ -332,11 +467,19 @@ class RoomManager {
             }
         } else {
             // 誤答
-            let newScore = (player.score || 0) - rules.wrongPoints;
+            let newScore = baseScore - rules.wrongPoints;
             if (!rules.allowNegative && newScore < rules.minScore) {
                 newScore = rules.minScore;
             }
+            updates[`players/${winnerToken}/individualScore`] = newScore;
             updates[`players/${winnerToken}/score`] = newScore;
+            if (team) {
+                let newTeamScore = (team.score || 0) - rules.wrongPoints;
+                if (!rules.allowNegative && newTeamScore < rules.minScore) {
+                    newTeamScore = rules.minScore;
+                }
+                updates[`teams/${teamId}/score`] = newTeamScore;
+            }
             updates['canAdvance'] = true;
 
             // ペナルティ設定
@@ -368,6 +511,7 @@ class RoomManager {
 
         const updates = {
             players: room.backup.players,
+            teams: room.backup.teams || null,
             roomState: room.backup.roomState,
             roundNumber: room.backup.roundNumber,
             winner: room.backup.winner,
@@ -400,6 +544,7 @@ class RoomManager {
         // バックアップ（Undo用）- undefined値を除外
         const backup = {
             players: room.players,
+            teams: room.teams || null,
             roomState: room.roomState,
             roundNumber: room.roundNumber,
             canAdvance: room.canAdvance || false
@@ -446,6 +591,7 @@ class RoomManager {
         // backup オブジェクト用のクリーンアップ
         const cleanBackup = {};
         if (backup.players) cleanBackup.players = backup.players;
+        if (backup.teams) cleanBackup.teams = backup.teams;
         if (backup.roomState) cleanBackup.roomState = backup.roomState;
         if (backup.roundNumber) cleanBackup.roundNumber = backup.roundNumber;
         if (backup.canAdvance !== undefined) cleanBackup.canAdvance = backup.canAdvance;

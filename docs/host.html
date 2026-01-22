@@ -282,7 +282,16 @@
                 <!-- ランキング表示エリア（終了時に表示） -->
                 <div id="finalRankingSection" class="hidden">
                     <h3 class="text-center text-accent mb-md">🏆 最終結果 🏆</h3>
-                    <ul class="ranking-list" id="hostRankingList"></ul>
+                    <div class="final-ranking-grid">
+                        <div>
+                            <h4 class="text-center mb-sm">チーム</h4>
+                            <ul class="ranking-list" id="hostTeamRankingList"></ul>
+                        </div>
+                        <div>
+                            <h4 class="text-center mb-sm">個人</h4>
+                            <ul class="ranking-list" id="hostIndividualRankingList"></ul>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- コントロールエリア -->
@@ -396,6 +405,25 @@
                 </div>
             </div>
 
+            <div class="setting-row">
+                <span class="setting-label">チーム戦</span>
+                <div class="setting-options">
+                    <label class="toggle-inline">
+                        <input type="checkbox" id="teamModeToggle">
+                        <span>チーム戦を有効にする</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="setting-row hidden" id="teamSettingsRow">
+                <span class="setting-label">チーム数</span>
+                <div class="setting-options team-settings">
+                    <input type="number" id="numTeamsInput" min="2" value="2" class="input-small">
+                    <span class="text-muted" id="teamCountHint"></span>
+                    <button class="btn btn-small btn-secondary" id="createTeamsBtn">チーム作成</button>
+                </div>
+            </div>
+
         </div>
     </div>
     <!-- 誤答後の処理オプション削除 -->
@@ -411,6 +439,7 @@
             let judgementTimeoutId = null;
             let judgementKey = null;
             let judgementResolvedKey = null;
+            let currentPlayerCount = 0;
 
             const setupScreen = document.getElementById('setupScreen');
             const mainScreen = document.getElementById('mainScreen');
@@ -651,6 +680,41 @@
                 });
             });
 
+            const teamModeToggle = document.getElementById('teamModeToggle');
+            const numTeamsInput = document.getElementById('numTeamsInput');
+            const createTeamsBtn = document.getElementById('createTeamsBtn');
+
+            teamModeToggle.addEventListener('change', async () => {
+                const enabled = teamModeToggle.checked;
+                currentRules.teamMode = enabled;
+                await roomManager.updateRules({ teamMode: enabled });
+                updateTeamSettingsVisibility();
+            });
+
+            numTeamsInput.addEventListener('change', async () => {
+                let value = parseInt(numTeamsInput.value, 10);
+                if (!value || Number.isNaN(value)) value = 2;
+                currentRules.numTeams = value;
+                await roomManager.updateRules({ numTeams: value });
+                updateTeamCountHint(currentPlayerCount);
+            });
+
+            numTeamsInput.addEventListener('input', () => {
+                updateTeamCountHint(currentPlayerCount);
+            });
+
+            createTeamsBtn.addEventListener('click', async () => {
+                const value = parseInt(numTeamsInput.value, 10);
+                const result = await roomManager.createTeams(value);
+                if (!result.success) {
+                    if (result.error === 'NOT_ENOUGH_PLAYERS') {
+                        alert('チーム作成には4人以上の参加者が必要です');
+                    } else {
+                        alert('チーム作成に失敗しました');
+                    }
+                }
+            });
+
             // UI更新
             function updateUI(room) {
                 // ヘッダーや共通表示
@@ -664,6 +728,7 @@
                 // 参加者人数 (リストヘッダー)
                 const pCount = Object.keys(room.players || {}).length;
                 document.getElementById('playerListCount').textContent = pCount;
+                currentPlayerCount = pCount;
 
                 currentRules = room.rules || {};
 
@@ -685,20 +750,11 @@
                     badge.classList.add('badge-locked');
                     badge.textContent = 'FINISHED';
 
-                    // ランキング生成 (略: 変更なし)
-                    // ... (前のコードのまま)
                     const pList = Object.values(room.players || {});
-                    const sorted = pList.sort((a, b) => (b.score || 0) - (a.score || 0));
-                    const listEl = document.getElementById('hostRankingList');
-                    if (listEl) {
-                        listEl.innerHTML = sorted.map((p, i) => `
-                            <li class="ranking-item ${i === 0 ? 'highlight' : ''}" style="margin-bottom: 8px; padding: 12px; background: var(--bg-card); border-radius: 8px; display: flex; justify-content: space-between;">
-                                <span class="ranking-rank" style="font-weight: bold; font-size: 1.2rem; min-width: 30px;">${i + 1}.</span>
-                                <span class="ranking-name" style="flex: 1; margin-left: 10px;">${escapeHtml(p.displayName)}</span>
-                                <span class="ranking-score" style="font-weight: bold; color: var(--accent-cyan);">${p.score || 0}pt</span>
-                            </li>
-                        `).join('');
-                    }
+                    const individualListEl = document.getElementById('hostIndividualRankingList');
+                    const teamListEl = document.getElementById('hostTeamRankingList');
+                    renderIndividualRanking(individualListEl, pList);
+                    renderTeamRanking(teamListEl, room.teams || {}, room.players || {}, room.rules || {});
 
                     // 音再生 (一度だけ鳴らす)
                     if (previousState !== 'FINISHED') {
@@ -712,6 +768,8 @@
                 // 通常状態
                 if (controlSection) controlSection.classList.remove('hidden');
                 if (finalRankingSection) finalRankingSection.classList.add('hidden');
+                updateTeamSettingsVisibility();
+                updateTeamCountHint(pCount);
 
                 // Openボタン文言 & 表示制御
                 // ルール:
@@ -921,11 +979,11 @@
                         break;
                 }
 
-                updatePlayerList(room.players || {});
+                updatePlayerList(room.players || {}, room.teams || {}, room.rules || {});
                 updateSettingsUI();
             }
 
-            function updatePlayerList(players) {
+            function updatePlayerList(players, teams, rules) {
                 const playerList = document.getElementById('playerList');
                 const playerArray = Object.values(players);
                 document.getElementById('playerCount').textContent = playerArray.length;
@@ -935,17 +993,94 @@
                     return;
                 }
 
-                const sorted = playerArray.sort((a, b) => (b.score || 0) - (a.score || 0));
+                if (!rules.teamMode) {
+                    const sorted = playerArray.sort((a, b) => (b.score || 0) - (a.score || 0));
+                    playerList.innerHTML = sorted.map(p => {
+                        const offlineClass = p.connectionStatus === 'offline' ? 'offline' : '';
+                        return `
+                            <div class="player-item ${offlineClass}">
+                                <span class="player-name">${escapeHtml(p.displayName)}</span>
+                                <span class="player-score">${p.score || 0}pt</span>
+                            </div>
+                        `;
+                    }).join('');
+                    return;
+                }
 
-                playerList.innerHTML = sorted.map(p => {
-                    const offlineClass = p.connectionStatus === 'offline' ? 'offline' : '';
+                const teamArray = Object.values(teams || {});
+                if (teamArray.length === 0) {
+                    playerList.innerHTML = '<p class="text-muted">チーム未作成です</p>';
+                    return;
+                }
+
+                const sortedTeams = teamArray.sort((a, b) => (b.score || 0) - (a.score || 0));
+                const assignedTokens = new Set();
+
+                playerList.innerHTML = sortedTeams.map(team => {
+                    const fallbackTokens = playerArray
+                        .filter(p => p.teamId === team.teamId)
+                        .map(p => p.playerToken);
+                    const memberTokens = (team.members && team.members.length > 0) ? team.members : fallbackTokens;
+                    const members = memberTokens.map(token => players[token]).filter(Boolean);
+                    members.forEach(p => assignedTokens.add(p.playerToken));
+
+                    const memberRows = members.sort((a, b) => {
+                        const aScore = a.individualScore !== undefined ? a.individualScore : (a.score || 0);
+                        const bScore = b.individualScore !== undefined ? b.individualScore : (b.score || 0);
+                        return bScore - aScore;
+                    }).map(p => {
+                        const offlineClass = p.connectionStatus === 'offline' ? 'offline' : '';
+                        const score = p.individualScore !== undefined ? p.individualScore : (p.score || 0);
+                        return `
+                            <div class="team-member ${offlineClass}">
+                                <span class="player-name">${escapeHtml(p.displayName)}</span>
+                                <span class="player-score">${score}pt</span>
+                            </div>
+                        `;
+                    }).join('');
+
+                    const teamName = escapeHtml(team.teamName || 'チーム');
+                    const teamScore = team.score || 0;
+                    const teamColor = team.color || 'var(--accent-cyan)';
+
                     return `
-                        <div class="player-item ${offlineClass}">
-                            <span class="player-name">${escapeHtml(p.displayName)}</span>
-                            <span class="player-score">${p.score || 0}pt</span>
-                        </div>
+                        <details class="team-group">
+                            <summary class="team-summary" style="--team-color: ${teamColor};">
+                                <span class="team-name">${teamName}</span>
+                                <span class="team-meta">${members.length}人</span>
+                                <span class="team-score">${teamScore}pt</span>
+                            </summary>
+                            <div class="team-members">
+                                ${memberRows || '<div class="text-muted">メンバーなし</div>'}
+                            </div>
+                        </details>
                     `;
                 }).join('');
+
+                const unassigned = playerArray.filter(p => !p.teamId || !assignedTokens.has(p.playerToken));
+                if (unassigned.length > 0) {
+                    const unassignedRows = unassigned.map(p => {
+                        const score = p.individualScore !== undefined ? p.individualScore : (p.score || 0);
+                        return `
+                            <div class="team-member">
+                                <span class="player-name">${escapeHtml(p.displayName)}</span>
+                                <span class="player-score">${score}pt</span>
+                            </div>
+                        `;
+                    }).join('');
+                    playerList.innerHTML += `
+                        <details class="team-group">
+                            <summary class="team-summary" style="--team-color: var(--accent-red);">
+                                <span class="team-name">未所属</span>
+                                <span class="team-meta">${unassigned.length}人</span>
+                                <span class="team-score">-</span>
+                            </summary>
+                            <div class="team-members">
+                                ${unassignedRows}
+                            </div>
+                        </details>
+                    `;
+                }
             }
 
             function updateSettingsUI() {
@@ -963,6 +1098,120 @@
                         btn.classList.remove('active');
                     }
                 });
+
+                const teamModeToggle = document.getElementById('teamModeToggle');
+                const numTeamsInput = document.getElementById('numTeamsInput');
+                if (teamModeToggle) {
+                    teamModeToggle.checked = !!currentRules.teamMode;
+                }
+                if (numTeamsInput) {
+                    numTeamsInput.value = currentRules.numTeams || 2;
+                }
+                updateTeamSettingsVisibility();
+            }
+
+            function updateTeamSettingsVisibility() {
+                const teamSettingsRow = document.getElementById('teamSettingsRow');
+                const numTeamsInput = document.getElementById('numTeamsInput');
+                const createTeamsBtn = document.getElementById('createTeamsBtn');
+                if (!teamSettingsRow) return;
+                const enabled = !!currentRules.teamMode;
+                if (enabled) {
+                    teamSettingsRow.classList.remove('hidden');
+                } else {
+                    teamSettingsRow.classList.add('hidden');
+                }
+                if (numTeamsInput) numTeamsInput.disabled = !enabled;
+                if (createTeamsBtn) createTeamsBtn.disabled = !enabled;
+            }
+
+            function updateTeamCountHint(playerCount) {
+                const hintEl = document.getElementById('teamCountHint');
+                const numTeamsInput = document.getElementById('numTeamsInput');
+                if (!hintEl || !numTeamsInput) return;
+
+                const maxTeams = Math.floor(playerCount / 2);
+                if (playerCount < 4 || maxTeams < 2) {
+                    hintEl.textContent = '参加者4人以上で作成できます';
+                    numTeamsInput.max = 2;
+                    return;
+                }
+
+                const rawValue = parseInt(numTeamsInput.value, 10) || 2;
+                const boundedValue = Math.max(2, Math.min(rawValue, maxTeams));
+                numTeamsInput.max = maxTeams;
+                numTeamsInput.value = boundedValue;
+
+                const perTeam = Math.floor(playerCount / boundedValue);
+                const remainder = playerCount % boundedValue;
+                hintEl.textContent = `${boundedValue}チーム / ${perTeam}人 + 余り${remainder}人`;
+            }
+
+            function renderIndividualRanking(listEl, players) {
+                if (!listEl) return;
+                if (!players || players.length === 0) {
+                    listEl.innerHTML = '<li class="text-muted">まだランキングはありません</li>';
+                    return;
+                }
+
+                const sorted = players.sort((a, b) => {
+                    const aScore = a.individualScore !== undefined ? a.individualScore : (a.score || 0);
+                    const bScore = b.individualScore !== undefined ? b.individualScore : (b.score || 0);
+                    return bScore - aScore;
+                });
+
+                listEl.innerHTML = sorted.map((p, i) => {
+                    const score = p.individualScore !== undefined ? p.individualScore : (p.score || 0);
+                    return `
+                        <li class="ranking-item ${i === 0 ? 'highlight' : ''}" style="margin-bottom: 8px; padding: 12px; background: var(--bg-card); border-radius: 8px; display: flex; justify-content: space-between;">
+                            <span class="ranking-rank" style="font-weight: bold; font-size: 1.2rem; min-width: 30px;">${i + 1}.</span>
+                            <span class="ranking-name" style="flex: 1; margin-left: 10px;">${escapeHtml(p.displayName)}</span>
+                            <span class="ranking-score" style="font-weight: bold; color: var(--accent-cyan);">${score}pt</span>
+                        </li>
+                    `;
+                }).join('');
+            }
+
+            function renderTeamRanking(listEl, teams, players, rules) {
+                if (!listEl) return;
+                const teamArray = Object.values(teams || {});
+                if (!rules.teamMode) {
+                    listEl.innerHTML = '<li class="text-muted">チーム戦なし</li>';
+                    return;
+                }
+                if (teamArray.length === 0) {
+                    listEl.innerHTML = '<li class="text-muted">チーム未作成です</li>';
+                    return;
+                }
+
+                const sorted = teamArray.sort((a, b) => (b.score || 0) - (a.score || 0));
+                listEl.innerHTML = sorted.map((team, i) => {
+                    const fallbackTokens = Object.values(players)
+                        .filter(p => p.teamId === team.teamId)
+                        .map(p => p.playerToken);
+                    const memberTokens = (team.members && team.members.length > 0) ? team.members : fallbackTokens;
+                    const members = memberTokens.map(token => players[token]).filter(Boolean).sort((a, b) => {
+                            const aScore = a.individualScore !== undefined ? a.individualScore : (a.score || 0);
+                            const bScore = b.individualScore !== undefined ? b.individualScore : (b.score || 0);
+                            return bScore - aScore;
+                        });
+                    const memberList = members.map(p => {
+                        const score = p.individualScore !== undefined ? p.individualScore : (p.score || 0);
+                        return `<span class="team-member-chip">${escapeHtml(p.displayName)} ${score}pt</span>`;
+                    }).join('');
+                    const teamName = escapeHtml(team.teamName || 'チーム');
+                    const teamColor = team.color || 'var(--accent-cyan)';
+                    return `
+                        <li class="ranking-item" style="margin-bottom: 12px; padding: 12px; background: var(--bg-card); border-radius: 8px;">
+                            <div class="team-ranking-header" style="--team-color: ${teamColor};">
+                                <span class="ranking-rank" style="font-weight: bold; font-size: 1.2rem; min-width: 30px;">${i + 1}.</span>
+                                <span class="team-name">${teamName}</span>
+                                <span class="team-score">${team.score || 0}pt</span>
+                            </div>
+                            <div class="team-member-chips">${memberList || '<span class="text-muted">メンバーなし</span>'}</div>
+                        </li>
+                    `;
+                }).join('');
             }
 
             function escapeHtml(text) {
@@ -1011,7 +1260,7 @@
             vEl.style.right = '10px';
             vEl.style.color = 'rgba(255,255,255,0.3)';
             vEl.style.fontSize = '0.8rem';
-            vEl.textContent = window.APP_VERSION || 'v1.5.9';
+            vEl.textContent = window.APP_VERSION || 'v1.6.0';
             document.body.appendChild(vEl);
         });
     </script>
