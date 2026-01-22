@@ -275,7 +275,7 @@
             <div class="card control-center">
                 <!-- 問題数表示 -->
                 <div class="text-center mb-lg">
-                    <h2 style="font-size: 2.5rem; color: var(--accent-cyan); margin: 0;">第<span
+                    <h2 style="font-size: 4rem; color: var(--accent-cyan); margin: 0;">第<span
                             id="roundNumberDisplay">1</span>問</h2>
                 </div>
 
@@ -293,6 +293,11 @@
                         <div class="winner-name" id="winnerName">---</div>
                         <div class="winner-time"><span id="reactionTime">0</span> ms</div>
                     </div>
+
+                    <!-- Undoボタン -->
+                    <button id="undoBtn" class="btn btn-small btn-secondary hidden" style="width: 100%; margin-top: 1rem;">
+                        ↩️ 前に戻す (Undo)
+                    </button>
 
                     <!-- 待機時表示 -->
                     <div id="waitingDisplay" class="mt-lg">
@@ -312,13 +317,6 @@
                         </button>
                         <button class="btn btn-secondary btn-large" id="nextBtn">
                             ➡️ 次の問題へ
-                        </button>
-                    </div>
-
-                    <!-- Undoボタン追加 -->
-                    <div class="mt-md">
-                        <button id="undoBtn" class="btn btn-small btn-secondary hidden" style="width: 100%;">
-                            ↩️ 前に戻す (Undo)
                         </button>
                     </div>
 
@@ -741,8 +739,8 @@
                 const isFirstWait = (rNum === 1) && room.roomState === 'WAITING' && !room.openTimestamp;
                 if (isFirstWait) {
                     openBtn.textContent = '🚀 クイズスタート！';
-                } else if (hasPenalty && room.roomState !== 'OPEN') {
-                    // ペナルティ中で OPEN でない場合は「全員ペナルティ解除」
+                } else if (hasPenalty || room.roomState === 'OPEN') {
+                    // ペナルティ中 または OPEN 状態は「全員ペナルティ解除」
                     openBtn.textContent = '🔓 全員ペナルティ解除';
                 } else {
                     openBtn.textContent = '🔓 回答再開';
