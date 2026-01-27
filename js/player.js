@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 名前データ読み込み
     try {
-        const response = await fetch('/data/names.json');
+        const response = await fetch('data/names.json');
         namesData = await response.json();
     } catch (e) {
         console.error('Failed to load names data:', e);
