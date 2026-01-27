@@ -295,6 +295,8 @@
                 namesData = await response.json();
             } catch (e) {
                 console.error('Failed to load names data:', e);
+                // フォールバック用の空のデータ
+                namesData = { modifiers: [''], characters: ['Unknown'] };
             }
 
             // URLからルームコード取得
@@ -349,6 +351,11 @@
                 }
 
                 function generateNameOptions() {
+                    if (!namesData || !namesData.modifiers || !namesData.characters) {
+                        document.getElementById('nameOptions').innerHTML = '<p>名前データの読み込みに失敗しました</p>';
+                        return;
+                    }
+
                     const options = [];
                     for (let i = 0; i < 5; i++) {
                         const modifier = namesData.modifiers[Math.floor(Math.random() * namesData.modifiers.length)];
