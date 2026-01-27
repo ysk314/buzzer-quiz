@@ -347,7 +347,24 @@
                 function showNameSelection() {
                     roomCodeSection.classList.add('hidden');
                     nameSection.classList.remove('hidden');
-                    generateNameOptions();
+                    
+                    // namesData が読み込まれるまで待つ
+                    if (!namesData || !namesData.modifiers) {
+                        const checkInterval = setInterval(() => {
+                            if (namesData && namesData.modifiers) {
+                                clearInterval(checkInterval);
+                                generateNameOptions();
+                            }
+                        }, 100);
+                        
+                        // 5秒待ってもダメなら強制的に実行
+                        setTimeout(() => {
+                            clearInterval(checkInterval);
+                            generateNameOptions();
+                        }, 5000);
+                    } else {
+                        generateNameOptions();
+                    }
                 }
 
                 function generateNameOptions() {
