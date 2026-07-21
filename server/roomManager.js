@@ -137,6 +137,7 @@ function serialize(room) {
         rules: room.rules,
         supportVotes: room.supportVotes,
         pending: room.pendingBuzzes.length > 0,
+        canUndo: room.history.length > 0,
         players: getPlayers(room)
     };
 }

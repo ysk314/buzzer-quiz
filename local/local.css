@@ -28,4 +28,5 @@
 .local-buzzer:disabled { opacity: .45; box-shadow: none; }
 .local-vote { width: min(100%, 390px); padding: 18px; text-align: center; border: 1px solid var(--accent-purple); border-radius: var(--radius-lg); background: var(--bg-card); }
 .local-ranking { margin-top: auto; }.local-ranking-title { display: flex; justify-content: space-between; }
+.local-result-overlay { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.9); }.local-result-content { text-align: center; animation: local-pop .3s ease; }.local-result-content div:first-child { font-size: 8rem; }.local-result-content div:last-child { font-size: 2rem; font-weight: 800; }@keyframes local-pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @media (max-width: 900px) { .local-grid { grid-template-columns: 1fr; } }

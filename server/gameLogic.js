@@ -9,6 +9,7 @@ function snapshot(room) {
         openTimestamp: room.openTimestamp,
         winner: room.winner,
         supportVotes: room.supportVotes,
+        rules: room.rules,
         players: Array.from(room.players.entries()).map(([token, player]) => [token, { ...player }])
     }));
 }
@@ -36,7 +37,7 @@ function resetForOpen(room, clearPenalties) {
 
 function openBuzz(roomCode, clearPenalties = true) {
     const room = rooms.getRoom(roomCode);
-    if (!room || (room.roomState !== 'WAITING' && room.roomState !== 'LOCKED')) return false;
+    if (!room || !['WAITING', 'LOCKED', 'OPEN'].includes(room.roomState)) return false;
     save(room);
     resetForOpen(room, clearPenalties);
     return true;
@@ -101,7 +102,11 @@ function judge(roomCode, result) {
         for (const player of room.players.values()) player.playerState = 'READY';
     } else {
         winner.score = Math.max(room.rules.allowNegative ? -Infinity : room.rules.minScore, winner.score - room.rules.wrongPoints);
-        if (room.rules.penaltyType !== 'none') winner.playerState = 'LOCKED_PENALTY_THIS';
+        if (room.rules.penaltyType === 'thisRound') winner.playerState = 'LOCKED_PENALTY_THIS';
+        if (room.rules.penaltyType === 'nextRound') {
+            winner.playerState = 'LOCKED_PENALTY_THIS';
+            winner.penaltyNextRound = true;
+        }
         if (supportRule) {
             for (const [token, vote] of Object.entries(room.supportVotes)) {
                 if (vote.choice === 'support') room.players.get(token).playerState = 'LOCKED_PENALTY_THIS';
@@ -116,11 +121,48 @@ function judge(roomCode, result) {
 
 function nextRound(roomCode) {
     const room = rooms.getRoom(roomCode);
-    if (!room) return false;
+    if (!room || room.roomState === 'FINISHED') return false;
     save(room);
     room.roundNumber += 1;
-    resetForOpen(room, true);
+    resetForOpen(room, false);
+    for (const player of room.players.values()) {
+        if (player.penaltyNextRound) {
+            player.playerState = 'LOCKED_PENALTY_THIS';
+            player.penaltyNextRound = false;
+        } else {
+            player.playerState = 'READY';
+        }
+    }
     return true;
 }
 
-module.exports = { FAIRNESS_WINDOW_MS, openBuzz, queueBuzz, finalizeBuzz, castSupportVote, judge, nextRound };
+function undo(roomCode) {
+    const room = rooms.getRoom(roomCode);
+    const previous = room?.history.pop();
+    if (!room || !previous) return false;
+    if (room.buzzTimer) clearTimeout(room.buzzTimer);
+    room.roundNumber = previous.roundNumber;
+    room.roomState = previous.roomState;
+    room.openTimestamp = previous.openTimestamp;
+    room.winner = previous.winner;
+    room.supportVotes = previous.supportVotes || {};
+    room.rules = previous.rules || room.rules;
+    room.players = new Map(previous.players);
+    room.pendingBuzzes = [];
+    room.buzzTimer = null;
+    return true;
+}
+
+function finishGame(roomCode) {
+    const room = rooms.getRoom(roomCode);
+    if (!room) return false;
+    if (room.buzzTimer) clearTimeout(room.buzzTimer);
+    save(room);
+    room.roomState = 'FINISHED';
+    room.winner = null;
+    room.pendingBuzzes = [];
+    room.supportVotes = {};
+    return true;
+}
+
+module.exports = { FAIRNESS_WINDOW_MS, openBuzz, queueBuzz, finalizeBuzz, castSupportVote, judge, nextRound, undo, finishGame };

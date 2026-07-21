@@ -123,6 +123,18 @@ io.on('connection', socket => {
         emitRoom(roomCode);
     });
 
+    socket.on('undo', ({ roomCode }, callback) => {
+        if (!host || joinedRoom !== roomCode || !roomManager.isHost(roomCode, socket.id)) return callback({ success: false });
+        callback({ success: gameLogic.undo(roomCode) });
+        emitRoom(roomCode);
+    });
+
+    socket.on('finishGame', ({ roomCode }, callback) => {
+        if (!host || joinedRoom !== roomCode || !roomManager.isHost(roomCode, socket.id)) return callback({ success: false });
+        callback({ success: gameLogic.finishGame(roomCode) });
+        emitRoom(roomCode);
+    });
+
     socket.on('updateRules', ({ roomCode, rules }, callback) => {
         const room = roomManager.getRoom(roomCode);
         if (!host || !room || !roomManager.isHost(roomCode, socket.id)) return callback({ success: false });
