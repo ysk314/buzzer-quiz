@@ -5,13 +5,48 @@ let token = localStorage.getItem('buzzer_local_token');
 let displayName;
 let room;
 let previousScore = 0;
+let namesData;
 const el = id => document.getElementById(id);
 el('room').value = roomCode;
 
-el('joinButton').onclick = () => {
+fetch('/assets/data/names.json')
+    .then(response => response.json())
+    .then(data => { namesData = data; })
+    .catch(() => { namesData = { modifiers: [''], characters: ['Player'] }; });
+
+el('room').addEventListener('input', event => {
+    event.target.value = event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+});
+
+el('checkRoomButton').onclick = () => {
     roomCode = el('room').value.trim().toUpperCase();
-    displayName = el('name').value.trim();
-    if (!/^[A-Z0-9]{6}$/.test(roomCode) || !displayName) return alert('ルームコードと名前を入力してください');
+    if (!/^[A-Z0-9]{6}$/.test(roomCode)) return alert('ルームコードは6文字です');
+    el('roomCodeSection').classList.add('hidden');
+    el('nameSection').classList.remove('hidden');
+    generateNameOptions();
+};
+
+function generateNameOptions() {
+    if (!namesData) {
+        setTimeout(generateNameOptions, 100);
+        return;
+    }
+    const names = Array.from({ length: 5 }, () => {
+        const modifier = namesData.modifiers[Math.floor(Math.random() * namesData.modifiers.length)];
+        const character = namesData.characters[Math.floor(Math.random() * namesData.characters.length)];
+        return `${modifier}${character}`;
+    });
+    el('nameOptions').innerHTML = names.map(name =>
+        `<button class="name-option" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('');
+    el('nameOptions').querySelectorAll('.name-option').forEach(button => {
+        button.onclick = () => joinAs(button.dataset.name);
+    });
+}
+
+el('shuffleNamesButton').onclick = generateNameOptions;
+
+function joinAs(name) {
+    displayName = name;
     socket.emit('joinRoom', { roomCode, token, displayName }, result => {
         if (!result.success) return alert('ルームが見つかりません');
         token = result.token;
@@ -23,7 +58,7 @@ el('joinButton').onclick = () => {
         render(result.room);
         setInterval(() => socket.emit('ping', { roomCode, token, sentAt: Date.now() }, () => {}), 3000);
     });
-};
+}
 
 el('buzzer').onclick = () => socket.emit('buzz', { roomCode, token }, () => {});
 document.querySelectorAll('[data-vote]').forEach(button => button.onclick = () => socket.emit('supportVote', {
