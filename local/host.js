@@ -99,7 +99,10 @@ el('wrongBtn').onclick = () => {
     emit('judge', { result: 'wrong' });
     setTimeout(() => emit('openBuzz', { clearPenalties: false }), 250);
 };
-el('nextBtn').onclick = () => emit('nextRound');
+el('nextBtn').onclick = () => {
+    playSound('open');
+    emit('nextRound');
+};
 el('undoBtn').onclick = () => emit('undo');
 el('finishGameBtn').onclick = () => {
     if (confirm('クイズを終了して結果発表にしますか？')) {
