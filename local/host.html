@@ -1,8 +1,205 @@
 <!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><title>早押しクイズ Local - ホスト</title><link rel="stylesheet" href="local.css"><script src="/socket.io/socket.io.js"></script></head>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>早押しクイズ Local - ホスト</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="local.css">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+
 <body>
-<section id="setup" class="local-setup"><div class="card"><h1>👑 ローカルホスト</h1><p class="text-secondary mb-lg">同じWi-FiのiPadだけで遊ぶ、低遅延モードです。</p><button class="btn btn-primary btn-large" id="create">📝 ルームを作成</button><p class="text-muted mt-lg">このMacのファイアウォール確認が出た場合は許可してください。</p></div></section>
-<main id="game" class="local-container hidden"><header class="local-header"><div class="local-room-info"><div><div class="local-info-label">LOCAL ROOM</div><div id="code" class="local-info-value">------</div></div><div><div class="local-info-label">ROUND</div><div id="state" class="local-info-value">第1問 / WAITING</div></div></div><span class="badge badge-open">LOCAL Wi-Fi</span></header>
-<div class="local-grid"><section class="card local-control"><p class="text-muted">参加用URL</p><p id="joinUrl" class="local-join-url"></p><img id="qrCode" class="local-qr" alt="参加用QRコード"><p class="text-muted mt-md">QRコードをiPadで読み取るか、このURLを開いてください</p><div id="winner" class="local-winner">参加者を待っています</div><p id="voteCount" class="text-secondary"></p><div class="local-controls"><button class="btn btn-primary btn-large" id="open">🔓 回答開始</button><button class="btn btn-success btn-large" id="correct">○ 正解</button><button class="btn btn-danger btn-large" id="wrong">× 不正解</button><button class="btn btn-secondary" id="next">➡️ 次の問題</button></div><button class="btn btn-small btn-secondary hidden" id="undo">↩️ 前に戻す</button><button class="btn btn-danger mt-lg" id="finish">🏁 クイズを終了して結果発表</button><div class="mt-lg"><p class="text-muted">回答ルール</p><div class="local-rule-buttons"><button class="btn btn-secondary local-rule-button" data-rule="classic">従来ルール</button><button class="btn btn-secondary local-rule-button" data-rule="support">支持投票ルール</button></div><p class="text-muted mt-md">支持投票：正解で回答者+2pt・○支持者+1pt。不正解なら回答者と○支持者は当問ロック。</p><p class="text-muted mt-md">誤答ペナルティ</p><div class="local-rule-buttons"><button class="btn btn-secondary local-rule-button" data-setting="penaltyType" data-value="none">なし</button><button class="btn btn-secondary local-rule-button" data-setting="penaltyType" data-value="thisRound">当問ロック</button><button class="btn btn-secondary local-rule-button" data-setting="penaltyType" data-value="nextRound">次問もロック</button></div><p class="text-muted mt-md">正解加点（従来ルール）</p><div class="local-rule-buttons"><button class="btn btn-secondary local-rule-button" data-setting="correctPoints" data-value="0">なし</button><button class="btn btn-secondary local-rule-button" data-setting="correctPoints" data-value="1">+1</button><button class="btn btn-secondary local-rule-button" data-setting="correctPoints" data-value="2">+2</button><button class="btn btn-secondary local-rule-button" data-setting="correctPoints" data-value="3">+3</button></div><p class="text-muted mt-md">誤答減点</p><div class="local-rule-buttons"><button class="btn btn-secondary local-rule-button" data-setting="wrongPoints" data-value="0">なし</button><button class="btn btn-secondary local-rule-button" data-setting="wrongPoints" data-value="1">-1</button><button class="btn btn-secondary local-rule-button" data-setting="wrongPoints" data-value="2">-2</button></div></div></section>
-<aside class="card"><div class="flex-between mb-md"><h3>参加者一覧</h3><span id="playerCount" class="badge badge-waiting">0人</span></div><div id="players" class="local-players"><p class="text-muted">参加者を待っています...</p></div></aside></div></main>
-<script src="host.js"></script></body></html>
+    <section id="setupScreen" class="setup-screen">
+        <div class="card setup-card text-center">
+            <h1>👑 ホスト設定</h1>
+
+            <div id="choiceSection">
+                <p class="text-secondary mb-lg">同じWi-FiのiPadだけで遊ぶ、低遅延モードです。</p>
+                <div class="control-buttons" style="flex-direction: column; gap: 16px;">
+                    <button class="btn btn-primary btn-large" id="createRoomBtn" style="width: 100%;">
+                        📝 ルームを作成
+                    </button>
+                    <button class="btn btn-secondary" onclick="location.href='./'" style="width: 100%;">
+                        🏠 TOPへ戻る
+                    </button>
+                </div>
+                <p class="text-muted mt-lg">このMacのファイアウォール確認が出た場合は許可してください。</p>
+            </div>
+
+            <div id="roomCreatedSection" class="hidden">
+                <p class="text-secondary mb-md">ルームが作成されました！</p>
+                <div class="room-code" id="displayRoomCode"></div>
+
+                <div class="mt-lg">
+                    <p class="text-muted mb-sm">参加URL</p>
+                    <div class="local-qr-wrap">
+                        <img id="qrCode" class="local-qr" alt="参加用QRコード">
+                    </div>
+                    <input type="text" class="input" id="shareUrl" readonly style="text-align: center;">
+                    <button class="btn btn-small btn-secondary mt-sm" id="copyUrlBtn">
+                        📋 コピー
+                    </button>
+                </div>
+
+                <div class="mt-lg">
+                    <p class="text-muted mb-sm">ホストPIN（メモしてください）</p>
+                    <div class="room-code" id="displayPin" style="font-size: 2rem;"></div>
+                </div>
+
+                <div class="mt-lg">
+                    <button class="btn btn-primary btn-large" id="autoJoinBtn">
+                        🚀 ホストとして開始
+                    </button>
+                    <button class="btn btn-secondary mt-md" id="settingsTogglePre" style="width: 100%;">
+                        ⚙️ ルール設定
+                    </button>
+                    <button class="btn btn-small btn-secondary mt-md" id="backToChoiceFromCreated" style="width: 100%;">
+                        戻る
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <main id="mainScreen" class="host-container hidden">
+        <header class="header">
+            <div class="room-info">
+                <div class="info-item">
+                    <span class="info-label">ルーム</span>
+                    <span class="info-value" id="headerRoomCode">------</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">ホストPIN</span>
+                    <span class="info-value" id="headerPin" style="color: var(--accent-purple);">----</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">参加者</span>
+                    <span class="info-value"><span id="playerCount">0</span>人</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">ラウンド</span>
+                    <span class="info-value">#<span id="roundNumber">1</span></span>
+                </div>
+                <div id="roomStateBadge" class="badge badge-waiting">WAITING</div>
+            </div>
+            <button id="backToSetupBtn" class="btn btn-small btn-secondary">戻る</button>
+        </header>
+
+        <div class="main-grid">
+            <div class="card control-center">
+                <div class="text-center mb-lg">
+                    <h2 style="font-size: 4rem; color: var(--accent-cyan); margin: 0;">第<span id="roundNumberDisplay">1</span>問</h2>
+                </div>
+
+                <div id="finalRankingSection" class="hidden">
+                    <h3 class="text-center text-accent mb-md">🏆 最終結果 🏆</h3>
+                    <ul class="ranking-list" id="hostIndividualRankingList"></ul>
+                </div>
+
+                <div id="controlSection">
+                    <div class="local-stage">
+                        <div id="judgementDisplay" class="hidden local-judgement">
+                            <span id="judgementIcon">○</span>
+                        </div>
+
+                        <div id="winnerDisplay" class="winner-display hidden mt-lg">
+                            <p class="text-muted">先着</p>
+                            <div class="winner-name" id="winnerName">---</div>
+                            <div class="winner-time"><span id="reactionTime">0</span> ms</div>
+                        </div>
+                        <p id="supportVoteCount" class="text-secondary hidden" style="margin-top: 12px;"></p>
+
+                        <div id="waitingDisplay" class="mt-lg">
+                            <p class="text-secondary" style="font-size: 1.2rem;">参加者が揃ったら、「クイズスタート」をタップ！</p>
+                        </div>
+
+                        <div id="judgeButtons" class="judge-buttons hidden">
+                            <button class="btn btn-success judge-btn" id="correctBtn">○</button>
+                            <button class="btn btn-danger judge-btn" id="wrongBtn">×</button>
+                        </div>
+
+                        <div class="control-buttons">
+                            <button class="btn btn-primary btn-large" id="openBtn">🔓 回答再開</button>
+                            <button class="btn btn-secondary btn-large" id="nextBtn">➡️ 次の問題へ</button>
+                        </div>
+                    </div>
+
+                    <button id="undoBtn" class="btn btn-small btn-secondary hidden" style="width: 100%; margin-top: 1rem;">
+                        ↩️ 前に戻す (Undo)
+                    </button>
+
+                    <div class="mt-lg pt-md" style="border-top: 1px solid var(--border-color);">
+                        <button id="finishGameBtn" class="btn btn-danger" style="width: 100%;">
+                            🏁 クイズを終了して結果発表
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <aside class="card">
+                <h3 class="mb-md">参加者一覧 (<span id="playerListCount">0</span>人)</h3>
+                <div id="playerList" class="player-grid">
+                    <p class="text-muted">参加者を待っています...</p>
+                </div>
+            </aside>
+        </div>
+
+        <button class="btn btn-icon btn-secondary settings-toggle" id="settingsToggle">⚙️</button>
+    </main>
+
+    <div id="settingsOverlay" class="settings-overlay">
+        <div class="settings-modal">
+            <div class="flex-between mb-lg">
+                <h2>⚙️ ルール設定</h2>
+                <button class="btn btn-small btn-secondary" id="closeSettings">✕ 閉じる</button>
+            </div>
+
+            <div class="setting-row">
+                <span class="setting-label">誤答ペナルティ</span>
+                <div class="setting-options">
+                    <button class="setting-option" data-setting="penaltyType" data-value="none">なし</button>
+                    <button class="setting-option active" data-setting="penaltyType" data-value="thisRound">当問ロック</button>
+                    <button class="setting-option" data-setting="penaltyType" data-value="nextRound">次問もロック</button>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <span class="setting-label">回答ルール</span>
+                <div class="setting-options">
+                    <button class="setting-option active" data-setting="answerRule" data-value="classic">従来ルール</button>
+                    <button class="setting-option" data-setting="answerRule" data-value="support">支持投票ルール</button>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <span class="setting-label">正解時の配点</span>
+                <div class="setting-options">
+                    <span class="text-secondary">支持投票ルール: 回答者 +2pt / ○支持者 +1pt / 不正解時の○支持者は当問ロック</span>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <span class="setting-label">誤答減点</span>
+                <div class="setting-options">
+                    <button class="setting-option active" data-setting="wrongPoints" data-value="0">なし</button>
+                    <button class="setting-option" data-setting="wrongPoints" data-value="1">-1</button>
+                    <button class="setting-option" data-setting="wrongPoints" data-value="2">-2</button>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <span class="setting-label">得点下限</span>
+                <div class="setting-options">
+                    <button class="setting-option active" data-setting="allowNegative" data-value="false">0まで</button>
+                    <button class="setting-option" data-setting="allowNegative" data-value="true">マイナスあり</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="host.js"></script>
+</body>
+
+</html>
