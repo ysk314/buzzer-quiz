@@ -13,6 +13,7 @@ const io = new Server(server, { cors: { origin: '*' } });
 const PORT = Number(process.env.PORT || 3000);
 
 app.use('/local', express.static(path.join(__dirname, '../local')));
+app.use('/assets', express.static(path.join(__dirname, '../docs')));
 app.get('/', (req, res) => res.redirect('/local/'));
 app.get('/join/:roomCode', (req, res) => res.redirect(`/local/player.html?room=${req.params.roomCode}`));
 
