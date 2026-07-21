@@ -309,6 +309,7 @@
                             <div class="winner-name" id="winnerName">---</div>
                             <div class="winner-time"><span id="reactionTime">0</span> ms</div>
                         </div>
+                        <p id="supportVoteCount" class="text-secondary hidden" style="margin-top: 12px;"></p>
 
                         <!-- 待機時表示 -->
                         <div id="waitingDisplay" class="mt-lg">
@@ -379,12 +380,17 @@
             </div>
 
             <div class="setting-row">
-                <span class="setting-label">正解加点</span>
+                <span class="setting-label">回答ルール</span>
                 <div class="setting-options">
-                    <button class="setting-option" data-setting="correctPoints" data-value="0">なし</button>
-                    <button class="setting-option active" data-setting="correctPoints" data-value="1">+1</button>
-                    <button class="setting-option" data-setting="correctPoints" data-value="2">+2</button>
-                    <button class="setting-option" data-setting="correctPoints" data-value="3">+3</button>
+                    <button class="setting-option active" data-setting="answerRule" data-value="classic">従来ルール</button>
+                    <button class="setting-option" data-setting="answerRule" data-value="support">支持投票ルール</button>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <span class="setting-label">正解時の配点</span>
+                <div class="setting-options">
+                    <span class="text-secondary">支持投票ルール: 回答者 +2pt / ○支持者 +1pt / 不正解時の○支持者は当問ロック</span>
                 </div>
             </div>
 
@@ -737,6 +743,7 @@
                 const nextBtn = document.getElementById('nextBtn');
                 const judgeButtons = document.getElementById('judgeButtons');
                 const winnerDisplay = document.getElementById('winnerDisplay');
+                const supportVoteCount = document.getElementById('supportVoteCount');
                 const waitingDisplay = document.getElementById('waitingDisplay');
                 const judgementDisplay = document.getElementById('judgementDisplay');
                 const judgementIcon = document.getElementById('judgementIcon');
@@ -882,6 +889,7 @@
                         badge.textContent = 'WAITING';
                         judgeButtons.classList.add('hidden');
                         winnerDisplay.classList.add('hidden');
+                        supportVoteCount.classList.add('hidden');
                         if (isJudgedCorrect) {
                             // 正解：大きな◯だけを表示
                             if (judgementResolvedKey === judgementStateKey) {
@@ -920,6 +928,7 @@
                         badge.textContent = 'OPEN';
                         judgeButtons.classList.add('hidden');
                         winnerDisplay.classList.add('hidden');
+                        supportVoteCount.classList.add('hidden');
                         waitingDisplay.classList.add('hidden');
                         // 判定結果表示を隠す
                         document.getElementById('judgementDisplay').classList.add('hidden');
@@ -968,6 +977,14 @@
                             // 判定前：先着者情報のみ表示
                             judgeButtons.classList.remove('hidden');
                             winnerDisplay.classList.remove('hidden');
+                            if (room.rules?.answerRule === 'support') {
+                                const votes = Object.values(room.supportVotes || {});
+                                const supported = votes.filter(vote => vote.choice === 'support').length;
+                                supportVoteCount.textContent = `支持投票: ○ ${supported}人 / 回答済み ${votes.length}人`;
+                                supportVoteCount.classList.remove('hidden');
+                            } else {
+                                supportVoteCount.classList.add('hidden');
+                            }
                             document.getElementById('winnerName').textContent = room.winner.displayName;
                             document.getElementById('reactionTime').textContent = room.winner.reactionTime || 0;
                             if (judgementDisplay) judgementDisplay.classList.add('hidden');
@@ -975,6 +992,7 @@
                             // その他：何も表示
                             if (judgementDisplay) judgementDisplay.classList.add('hidden');
                             winnerDisplay.classList.add('hidden');
+                            supportVoteCount.classList.add('hidden');
                         }
                         break;
                 }
@@ -1107,7 +1125,10 @@
                     else if (value === 'false') value = false;
                     else if (!isNaN(value)) value = parseInt(value);
 
-                    if (currentRules[setting] === value) {
+                    const currentValue = setting === 'answerRule'
+                        ? (currentRules[setting] || 'classic')
+                        : currentRules[setting];
+                    if (currentValue === value) {
                         btn.classList.add('active');
                     } else {
                         btn.classList.remove('active');
@@ -1275,7 +1296,7 @@
             vEl.style.right = '10px';
             vEl.style.color = 'rgba(255,255,255,0.3)';
             vEl.style.fontSize = '0.8rem';
-            vEl.textContent = window.APP_VERSION || 'v1.6.1';
+            vEl.textContent = window.APP_VERSION || 'v1.7.0';
             document.body.appendChild(vEl);
         });
     </script>

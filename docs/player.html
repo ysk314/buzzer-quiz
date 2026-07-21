@@ -162,6 +162,23 @@
             font-weight: 700;
         }
 
+        .support-vote-panel {
+            width: min(100%, 360px);
+            margin: 0 auto 20px;
+            padding: 16px;
+            text-align: center;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+
+        .support-vote-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
         /* 終了画面用スタイル */
         .game-finished .buzzer-area {
             display: none;
@@ -232,6 +249,14 @@
             <button class="buzzer-btn" id="buzzerBtn" disabled>
                 <span id="buzzerText">PUSH!</span>
             </button>
+            <div id="supportVotePanel" class="support-vote-panel hidden">
+                <strong><span id="answererName"></span>さんの回答を支持しますか？</strong>
+                <div class="support-vote-buttons">
+                    <button class="btn btn-success" id="supportYesBtn">○ 支持する</button>
+                    <button class="btn btn-danger" id="supportNoBtn">× 支持しない</button>
+                </div>
+                <p id="supportVoteStatus" class="text-secondary" style="margin: 12px 0 0;"></p>
+            </div>
         </div>
 
         <div class="bottom-section">
@@ -288,6 +313,9 @@
             const nameSection = document.getElementById('nameSection');
             const roomCodeInput = document.getElementById('roomCodeInput');
             const buzzerBtn = document.getElementById('buzzerBtn');
+            const supportVotePanel = document.getElementById('supportVotePanel');
+            const supportYesBtn = document.getElementById('supportYesBtn');
+            const supportNoBtn = document.getElementById('supportNoBtn');
 
             // 名前データを読み込み
             try {
@@ -413,6 +441,18 @@
             // setupRoomManager() を呼び出して、roomManager が定義されたらイベントリスナーを設定する
             setupRoomManager();
 
+            async function castSupportVote(choice) {
+                supportYesBtn.disabled = true;
+                supportNoBtn.disabled = true;
+                const result = await roomManager.castSupportVote(playerToken, choice);
+                if (!result.success) {
+                    document.getElementById('supportVoteStatus').textContent = '投票を受け付けられませんでした';
+                }
+            }
+
+            supportYesBtn.addEventListener('click', () => castSupportVote('support'));
+            supportNoBtn.addEventListener('click', () => castSupportVote('oppose'));
+
             function enterGame() {
                 joinScreen.classList.add('hidden');
                 mainScreen.classList.remove('hidden');
@@ -517,6 +557,7 @@
 
                 // 勝者チェック
                 wasWinner = room.winner && room.winner.playerToken === playerToken;
+                updateSupportVote(room);
 
                 if (roomState === 'OPEN' && prevRoomState !== 'OPEN') {
                     if (playerState === 'LOCKED_LOST' || playerState === 'PRESSED') {
@@ -548,6 +589,26 @@
 
                 updateBuzzerState();
                 updateRanking(players, room.teams || {}, room.rules || {});
+            }
+
+            function updateSupportVote(room) {
+                const canVote = room.rules?.answerRule === 'support'
+                    && room.roomState === 'LOCKED'
+                    && room.winner
+                    && room.winner.playerToken !== playerToken;
+                if (!canVote) {
+                    supportVotePanel.classList.add('hidden');
+                    return;
+                }
+
+                supportVotePanel.classList.remove('hidden');
+                document.getElementById('answererName').textContent = room.winner.displayName;
+                const vote = (room.supportVotes || {})[playerToken];
+                supportYesBtn.disabled = Boolean(vote);
+                supportNoBtn.disabled = Boolean(vote);
+                document.getElementById('supportVoteStatus').textContent = vote
+                    ? (vote.choice === 'support' ? '○ 支持しました。判定を待っています。' : '× 支持しないを選びました。判定を待っています。')
+                    : '正解なら○に+1pt。不正解なら○を選んだ人は当問ロックです。';
             }
 
             function updateBuzzerState() {
@@ -712,7 +773,7 @@
             vEl.style.right = '10px';
             vEl.style.color = 'rgba(255,255,255,0.3)';
             vEl.style.fontSize = '0.8rem';
-            vEl.textContent = window.APP_VERSION || 'v1.6.1';
+            vEl.textContent = window.APP_VERSION || 'v1.7.0';
             document.body.appendChild(vEl);
 
         });
