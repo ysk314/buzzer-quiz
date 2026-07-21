@@ -4,6 +4,7 @@ const os = require('os');
 const path = require('path');
 const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
+const QRCode = require('qrcode');
 const roomManager = require('./roomManager');
 const gameLogic = require('./gameLogic');
 
@@ -14,6 +15,22 @@ const PORT = Number(process.env.PORT || 3000);
 
 app.use('/local', express.static(path.join(__dirname, '../local')));
 app.use('/assets', express.static(path.join(__dirname, '../docs')));
+app.get('/local/qr.svg', async (req, res, next) => {
+    try {
+        const joinUrl = String(req.query.url || '');
+        if (!joinUrl.startsWith('http://') && !joinUrl.startsWith('https://')) {
+            return res.status(400).send('Invalid URL');
+        }
+        const svg = await QRCode.toString(joinUrl, {
+            type: 'svg',
+            margin: 1,
+            color: { dark: '#0a0a1a', light: '#ffffff' }
+        });
+        res.type('image/svg+xml').send(svg);
+    } catch (error) {
+        next(error);
+    }
+});
 app.get('/', (req, res) => res.redirect('/local/'));
 app.get('/join/:roomCode', (req, res) => res.redirect(`/local/player.html?room=${req.params.roomCode}`));
 

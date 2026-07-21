@@ -12,7 +12,9 @@ el('create').onclick = () => socket.emit('createRoom', result => {
         el('setup').classList.add('hidden');
         el('game').classList.remove('hidden');
         el('code').textContent = roomCode;
-        el('joinUrl').textContent = `${result.lanUrl}player.html?room=${roomCode}`;
+        const joinUrl = `${result.lanUrl}player.html?room=${roomCode}`;
+        el('joinUrl').textContent = joinUrl;
+        el('qrCode').src = `qr.svg?url=${encodeURIComponent(joinUrl)}`;
         render(auth.room);
     });
 });
