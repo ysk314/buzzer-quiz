@@ -170,8 +170,8 @@ function renderMainState(players, hasWinner, hasPenalty) {
     const nextBtn = el('nextBtn');
 
     const isFirstWait = room.roundNumber === 1 && room.roomState === 'WAITING' && !room.canUndo;
-    const afterCorrect = room.roomState === 'WAITING' && room.canUndo && !hasWinner;
-    const afterWrong = room.roomState === 'LOCKED' && room.canUndo && !hasWinner;
+    const afterCorrect = room.roomState === 'WAITING' && room.lastJudgement === 'correct';
+    const afterWrong = room.roomState === 'LOCKED' && room.lastJudgement === 'wrong';
     const showJudge = room.roomState === 'LOCKED' && hasWinner;
     const showOpen = !showJudge && (room.roomState === 'WAITING' || room.roomState === 'LOCKED' || (room.roomState === 'OPEN' && hasPenalty)) && !afterCorrect;
     const showNext = afterCorrect || afterWrong;

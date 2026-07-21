@@ -595,7 +595,9 @@
                 const canVote = room.rules?.answerRule === 'support'
                     && room.roomState === 'LOCKED'
                     && room.winner
-                    && room.winner.playerToken !== playerToken;
+                    && room.winner.playerToken !== playerToken
+                    && playerState !== 'LOCKED_PENALTY_THIS'
+                    && playerState !== 'LOCKED_PENALTY_NEXT';
                 if (!canVote) {
                     supportVotePanel.classList.add('hidden');
                     return;

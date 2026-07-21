@@ -7,6 +7,7 @@ function snapshot(room) {
         roundNumber: room.roundNumber,
         roomState: room.roomState,
         openTimestamp: room.openTimestamp,
+        lastJudgement: room.lastJudgement,
         winner: room.winner,
         supportVotes: room.supportVotes,
         rules: room.rules,
@@ -22,6 +23,7 @@ function save(room) {
 function resetForOpen(room, clearPenalties) {
     room.roomState = 'OPEN';
     room.openTimestamp = Date.now();
+    room.lastJudgement = null;
     room.winner = null;
     room.pendingBuzzes = [];
     room.supportVotes = {};
@@ -78,8 +80,10 @@ function finalizeBuzz(roomCode) {
 
 function castSupportVote(roomCode, token, choice) {
     const room = rooms.getRoom(roomCode);
+    const player = rooms.getPlayer(roomCode, token);
     if (!room || room.rules.answerRule !== 'support' || room.roomState !== 'LOCKED' || !room.winner) return false;
-    if (!room.players.has(token) || token === room.winner.playerToken || room.supportVotes[token]) return false;
+    if (!player || token === room.winner.playerToken || room.supportVotes[token]) return false;
+    if (player.playerState === 'LOCKED_PENALTY_THIS' || player.playerState === 'LOCKED_PENALTY_NEXT') return false;
     if (choice !== 'support' && choice !== 'oppose') return false;
     room.supportVotes[token] = { choice };
     return true;
@@ -92,6 +96,7 @@ function judge(roomCode, result) {
     const winner = room.players.get(room.winner.playerToken);
     const supportRule = room.rules.answerRule === 'support';
     if (result === 'correct') {
+        room.lastJudgement = 'correct';
         winner.score += supportRule ? 2 : room.rules.correctPoints;
         if (supportRule) {
             for (const [token, vote] of Object.entries(room.supportVotes)) {
@@ -101,6 +106,7 @@ function judge(roomCode, result) {
         room.roomState = 'WAITING';
         for (const player of room.players.values()) player.playerState = 'READY';
     } else {
+        room.lastJudgement = 'wrong';
         winner.score = Math.max(room.rules.allowNegative ? -Infinity : room.rules.minScore, winner.score - room.rules.wrongPoints);
         if (room.rules.penaltyType === 'thisRound') winner.playerState = 'LOCKED_PENALTY_THIS';
         if (room.rules.penaltyType === 'nextRound') {
@@ -125,6 +131,7 @@ function nextRound(roomCode) {
     save(room);
     room.roundNumber += 1;
     resetForOpen(room, false);
+    room.lastJudgement = null;
     for (const player of room.players.values()) {
         if (player.penaltyNextRound) {
             player.playerState = 'LOCKED_PENALTY_THIS';
@@ -144,6 +151,7 @@ function undo(roomCode) {
     room.roundNumber = previous.roundNumber;
     room.roomState = previous.roomState;
     room.openTimestamp = previous.openTimestamp;
+    room.lastJudgement = previous.lastJudgement || null;
     room.winner = previous.winner;
     room.supportVotes = previous.supportVotes || {};
     room.rules = previous.rules || room.rules;
@@ -159,6 +167,7 @@ function finishGame(roomCode) {
     if (room.buzzTimer) clearTimeout(room.buzzTimer);
     save(room);
     room.roomState = 'FINISHED';
+    room.lastJudgement = null;
     room.winner = null;
     room.pendingBuzzes = [];
     room.supportVotes = {};

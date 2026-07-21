@@ -137,7 +137,8 @@ function render(nextRoom) {
     el('buzzer').classList.toggle('locked', !canBuzz && !winner);
     el('buzzer').classList.toggle('hidden', room.roomState === 'FINISHED');
     const vote = room.supportVotes?.[token];
-    const canVote = room.rules.answerRule === 'support' && room.roomState === 'LOCKED' && winner && winner.playerToken !== token;
+    const isPenaltyLocked = me.playerState === 'LOCKED_PENALTY_THIS' || me.playerState === 'LOCKED_PENALTY_NEXT';
+    const canVote = room.rules.answerRule === 'support' && room.roomState === 'LOCKED' && winner && winner.playerToken !== token && !isPenaltyLocked;
     el('vote').classList.toggle('hidden', !canVote);
     if (canVote) {
         el('answerer').textContent = winner.displayName;

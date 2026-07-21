@@ -433,6 +433,8 @@ class RoomManager {
             if (!data || data.roomState !== 'LOCKED' || !data.winner || !data.players) return;
             if (data.rules?.answerRule !== 'support') return;
             if (data.winner.playerToken === playerToken || !data.players[playerToken]) return;
+            const playerState = data.players[playerToken].playerState;
+            if (playerState === 'LOCKED_PENALTY_THIS' || playerState === 'LOCKED_PENALTY_NEXT') return;
             data.supportVotes = data.supportVotes || {};
             if (data.supportVotes[playerToken]) return;
             data.supportVotes[playerToken] = { choice };
