@@ -9,6 +9,10 @@ let namesData;
 let previousState;
 let previousWinner;
 let pingTimerId = null;
+let openRefreshTimerId = null;
+let clockOffset = null;
+let clockSamples = [];
+let lastRoomReceivedAt = null;
 
 const el = id => document.getElementById(id);
 el('room').value = roomCode;
@@ -99,9 +103,38 @@ function joinAs(name, options = {}) {
 
 function startPing() {
     if (pingTimerId) return;
+    syncClock();
     pingTimerId = setInterval(() => {
-        socket.emit('ping', { roomCode, token, sentAt: Date.now() }, () => {});
-    }, 3000);
+        syncClock();
+    }, 2000);
+}
+
+function syncClock() {
+    if (!roomCode || !token) return;
+    const clientSentAt = performance.now();
+    socket.emit('timeSync', { roomCode, token, clientSentAt }, response => {
+        if (!response?.success) return;
+        const clientReceivedAt = performance.now();
+        const rtt = clientReceivedAt - clientSentAt;
+        const clientMidpoint = (clientSentAt + clientReceivedAt) / 2;
+        const serverMidpoint = (response.serverReceivedAt + response.serverSentAt) / 2;
+        const offset = serverMidpoint - clientMidpoint;
+        if (!Number.isFinite(rtt) || !Number.isFinite(offset)) return;
+        clockSamples.push({ rtt, offset });
+        if (clockSamples.length > 8) clockSamples.shift();
+        const sortedByRtt = [...clockSamples].sort((a, b) => a.rtt - b.rtt);
+        const bestSamples = sortedByRtt.slice(0, Math.min(4, sortedByRtt.length));
+        const sortedOffsets = bestSamples.map(sample => sample.offset).sort((a, b) => a - b);
+        clockOffset = sortedOffsets[Math.floor(sortedOffsets.length / 2)];
+        socket.emit('clockSync', { roomCode, token, rtt, offset: clockOffset }, () => {});
+        if (room?.roomState === 'OPEN') render(room);
+    });
+}
+
+function estimatedServerNow() {
+    if (clockOffset !== null) return performance.now() + clockOffset;
+    if (room?.serverTime && lastRoomReceivedAt !== null) return room.serverTime + (performance.now() - lastRoomReceivedAt);
+    return Date.now();
 }
 
 socket.on('connect', () => {
@@ -140,7 +173,9 @@ function showResult(correct) {
     setTimeout(() => el('resultOverlay').classList.add('hidden'), 1500);
 }
 
-el('buzzer').onclick = () => socket.emit('buzz', { roomCode, token }, () => {});
+el('buzzer').onclick = () => socket.emit('buzz', { roomCode, token, clientPressedAt: performance.now() }, result => {
+    if (!result?.success && result?.error === 'NOT_OPEN_YET') el('status').textContent = '開始時刻を同期中です';
+});
 document.querySelectorAll('[data-vote]').forEach(button => button.onclick = () => socket.emit('supportVote', {
     roomCode, token, choice: button.dataset.vote
 }, result => {
@@ -150,7 +185,9 @@ socket.on('roomUpdate', render);
 
 function render(nextRoom) {
     if (!nextRoom || !token) return;
+    const freshServerUpdate = nextRoom !== room;
     room = nextRoom;
+    if (freshServerUpdate || lastRoomReceivedAt === null) lastRoomReceivedAt = performance.now();
     const me = room.players.find(player => player.playerToken === token);
     if (!me) return;
     const myScore = scoreOf(me);
@@ -165,13 +202,16 @@ function render(nextRoom) {
     if (previousState === 'OPEN' && room.roomState === 'LOCKED' && room.winner) playSound('buzz');
     el('round').textContent = `第${room.roundNumber}問`;
     const winner = room.winner;
-    const canBuzz = room.roomState === 'OPEN' && me.playerState === 'READY';
+    const msUntilOpen = room.openTimestamp ? room.openTimestamp - estimatedServerNow() : 0;
+    const scheduledOpenReady = room.roomState === 'OPEN' && msUntilOpen <= 0;
+    const canBuzz = scheduledOpenReady && me.playerState === 'READY';
     el('buzzer').disabled = !canBuzz;
     el('buzzer').textContent = canBuzz ? 'PUSH!' : (me.playerState === 'LOCKED_PENALTY_THIS' ? '🚫' : 'WAIT');
     el('status').className = 'local-status';
-    el('status').textContent = room.roomState === 'FINISHED' ? 'お疲れ様でした！' : room.roomState === 'OPEN' ? (canBuzz ? '🔥 早押しスタート！' : '回答できません') :
+    el('status').textContent = room.roomState === 'FINISHED' ? 'お疲れ様でした！' : room.roomState === 'OPEN' ? (msUntilOpen > 0 ? '開始準備中…' : (canBuzz ? '🔥 早押しスタート！' : '回答できません')) :
         winner ? (winner.playerToken === token ? '先着！判定を待っています' : '他の人が先着しました') :
         (room.pending ? '早押し判定中…' : '待機中');
+    scheduleOpenRefresh(msUntilOpen);
     if (canBuzz) el('status').classList.add('open');
     if (winner?.playerToken === token) el('status').classList.add('winner');
     if (me.playerState === 'LOCKED_PENALTY_THIS') el('status').classList.add('locked');
@@ -193,6 +233,18 @@ function render(nextRoom) {
     previousScore = myScore;
     previousState = room.roomState;
     previousWinner = winner?.playerToken;
+}
+
+function scheduleOpenRefresh(msUntilOpen) {
+    if (openRefreshTimerId) {
+        clearTimeout(openRefreshTimerId);
+        openRefreshTimerId = null;
+    }
+    if (room?.roomState !== 'OPEN' || msUntilOpen <= 0) return;
+    openRefreshTimerId = setTimeout(() => {
+        openRefreshTimerId = null;
+        if (room?.roomState === 'OPEN') render(room);
+    }, Math.min(1000, Math.max(10, msUntilOpen + 5)));
 }
 
 function renderTeamStatus(me) {

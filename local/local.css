@@ -185,6 +185,43 @@
     opacity: 0.55;
 }
 
+.player-meta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.network-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+.network-good {
+    color: var(--accent-green);
+    border-color: rgba(0, 255, 136, 0.35);
+}
+
+.network-fair,
+.network-measuring {
+    color: var(--accent-yellow);
+    border-color: rgba(255, 217, 61, 0.35);
+}
+
+.network-unstable,
+.network-offline {
+    color: var(--accent-red);
+    border-color: rgba(255, 107, 107, 0.35);
+}
+
 .local-player-container {
     min-height: 100vh;
     display: flex;

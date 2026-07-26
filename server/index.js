@@ -84,15 +84,27 @@ io.on('connection', socket => {
         callback({ serverTime: Date.now() });
     });
 
+    socket.on('timeSync', ({ roomCode, token, clientSentAt }, callback) => {
+        const serverReceivedAt = Date.now();
+        if (joinedRoom !== roomCode || playerToken !== token) return callback({ success: false });
+        callback({ success: true, clientSentAt, serverReceivedAt, serverSentAt: Date.now() });
+    });
+
+    socket.on('clockSync', ({ roomCode, token, rtt, offset }, callback) => {
+        if (joinedRoom !== roomCode || playerToken !== token) return callback({ success: false });
+        roomManager.recordClockSync(roomCode, token, { rtt, offset });
+        callback({ success: true });
+    });
+
     socket.on('openBuzz', ({ roomCode, clearPenalties = true }, callback) => {
         if (!host || joinedRoom !== roomCode || !roomManager.isHost(roomCode, socket.id)) return callback({ success: false });
         callback({ success: gameLogic.openBuzz(roomCode, clearPenalties) });
         emitRoom(roomCode);
     });
 
-    socket.on('buzz', ({ roomCode, token }, callback) => {
+    socket.on('buzz', ({ roomCode, token, clientPressedAt }, callback) => {
         if (joinedRoom !== roomCode || playerToken !== token) return callback({ success: false });
-        const result = gameLogic.queueBuzz(roomCode, token);
+        const result = gameLogic.queueBuzz(roomCode, token, clientPressedAt);
         callback(result);
         if (result.shouldSchedule) {
             const room = roomManager.getRoom(roomCode);

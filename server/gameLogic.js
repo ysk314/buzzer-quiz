@@ -1,6 +1,9 @@
 const rooms = require('./roomManager');
 
 const FAIRNESS_WINDOW_MS = 180;
+const OPEN_DELAY_MS = 1000;
+const EARLY_PRESS_GRACE_MS = 80;
+const FUTURE_PRESS_GRACE_MS = 250;
 
 function snapshot(room) {
     return JSON.parse(JSON.stringify({
@@ -23,7 +26,7 @@ function save(room) {
 
 function resetForOpen(room, clearPenalties) {
     room.roomState = 'OPEN';
-    room.openTimestamp = Date.now();
+    room.openTimestamp = Date.now() + OPEN_DELAY_MS;
     room.lastJudgement = null;
     room.winner = null;
     room.pendingBuzzes = [];
@@ -46,16 +49,31 @@ function openBuzz(roomCode, clearPenalties = true) {
     return true;
 }
 
-function queueBuzz(roomCode, token) {
+function queueBuzz(roomCode, token, clientPressedAt = null) {
     const room = rooms.getRoom(roomCode);
     const player = rooms.getPlayer(roomCode, token);
     if (!room || !player || room.roomState !== 'OPEN' || player.playerState !== 'READY') {
         return { success: false };
     }
-    player.playerState = 'PRESSED';
     const receivedAt = Date.now();
-    const adjustedAt = receivedAt - rooms.medianRtt(player) / 2;
-    room.pendingBuzzes.push({ token, receivedAt, adjustedAt });
+    if (receivedAt < room.openTimestamp - EARLY_PRESS_GRACE_MS) {
+        return { success: false, error: 'NOT_OPEN_YET' };
+    }
+    const offset = rooms.clockOffset(player);
+    let adjustedAt = receivedAt - rooms.bestRtt(player) / 2;
+    let timingSource = 'rtt';
+    if (offset !== null && Number.isFinite(clientPressedAt)) {
+        adjustedAt = clientPressedAt + offset;
+        timingSource = 'client';
+    }
+    if (adjustedAt < room.openTimestamp - EARLY_PRESS_GRACE_MS) {
+        return { success: false, error: 'EARLY_PRESS' };
+    }
+    if (adjustedAt > receivedAt + FUTURE_PRESS_GRACE_MS) {
+        return { success: false, error: 'INVALID_TIME' };
+    }
+    player.playerState = 'PRESSED';
+    room.pendingBuzzes.push({ token, receivedAt, adjustedAt, timingSource });
     return { success: true, shouldSchedule: room.pendingBuzzes.length === 1 };
 }
 
@@ -69,7 +87,8 @@ function finalizeBuzz(roomCode) {
     room.winner = {
         playerToken: player.playerToken,
         displayName: player.displayName,
-        reactionTime: Math.round(winningBuzz.adjustedAt - room.openTimestamp)
+        reactionTime: Math.max(0, Math.round(winningBuzz.adjustedAt - room.openTimestamp)),
+        timingSource: winningBuzz.timingSource
     };
     room.supportVotes = {};
     for (const [token, target] of room.players) {
@@ -197,4 +216,4 @@ function finishGame(roomCode) {
     return true;
 }
 
-module.exports = { FAIRNESS_WINDOW_MS, openBuzz, queueBuzz, finalizeBuzz, castSupportVote, judge, nextRound, undo, finishGame };
+module.exports = { FAIRNESS_WINDOW_MS, OPEN_DELAY_MS, openBuzz, queueBuzz, finalizeBuzz, castSupportVote, judge, nextRound, undo, finishGame };

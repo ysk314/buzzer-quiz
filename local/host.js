@@ -312,7 +312,10 @@ function renderPlayers(players) {
         return `
             <div class="player-item ${locked ? 'locked' : ''} ${offline ? 'offline' : ''}">
                 <span class="player-name">${escapeHtml(player.displayName)}${locked ? ' 🚫' : ''}</span>
-                <span class="player-score">${scoreOf(player)}pt</span>
+                <span class="player-meta">
+                    <span class="network-pill ${networkClass(player)}">${networkLabel(player)}</span>
+                    <span class="player-score">${scoreOf(player)}pt</span>
+                </span>
             </div>
         `;
     }).join('');
@@ -338,7 +341,10 @@ function renderTeamGroups(players, teams) {
                     ${members.map(player => `
                         <div class="team-member ${player.connectionStatus === 'offline' ? 'offline' : ''}">
                             <span>${escapeHtml(player.displayName)}</span>
-                            <span>${scoreOf(player)}pt</span>
+                            <span class="player-meta">
+                                <span class="network-pill ${networkClass(player)}">${networkLabel(player)}</span>
+                                <span>${scoreOf(player)}pt</span>
+                            </span>
                         </div>
                     `).join('') || '<div class="text-muted">メンバーなし</div>'}
                 </div>
@@ -358,7 +364,10 @@ function renderTeamGroups(players, teams) {
                     ${unassigned.map(player => `
                         <div class="team-member">
                             <span>${escapeHtml(player.displayName)}</span>
-                            <span>${scoreOf(player)}pt</span>
+                            <span class="player-meta">
+                                <span class="network-pill ${networkClass(player)}">${networkLabel(player)}</span>
+                                <span>${scoreOf(player)}pt</span>
+                            </span>
                         </div>
                     `).join('')}
                 </div>
@@ -449,6 +458,24 @@ function parseSettingValue(value) {
     if (value === 'true') return true;
     if (value === 'false') return false;
     return /^-?\d+$/.test(value) ? Number(value) : value;
+}
+
+function networkLabel(player) {
+    if (player.connectionStatus === 'offline') return 'offline';
+    const rtt = Number.isFinite(player.bestRtt) && player.bestRtt > 0 ? player.bestRtt : player.rtt;
+    const ms = Number.isFinite(rtt) && rtt > 0 ? `${Math.round(rtt)}ms` : 'sync';
+    const labels = {
+        good: '良好',
+        fair: '普通',
+        unstable: '不安定',
+        measuring: '測定中'
+    };
+    return `${labels[player.connectionQuality] || '測定中'} ${ms}`;
+}
+
+function networkClass(player) {
+    if (player.connectionStatus === 'offline') return 'network-offline';
+    return `network-${player.connectionQuality || 'measuring'}`;
 }
 
 function escapeHtml(value) {

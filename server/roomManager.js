@@ -103,7 +103,8 @@ function joinPlayer(roomCode, playerToken, displayName, socketId) {
         penaltyNextRound: false,
         socketId,
         connectionStatus: 'online',
-        rttSamples: []
+        rttSamples: [],
+        clockOffsetSamples: []
     };
     room.players.set(playerToken, player);
     return player;
@@ -128,9 +129,43 @@ function recordRtt(roomCode, token, rtt) {
     if (player.rttSamples.length > 9) player.rttSamples.shift();
 }
 
+function recordClockSync(roomCode, token, { rtt, offset }) {
+    const player = getPlayer(roomCode, token);
+    if (!player) return;
+    if (Number.isFinite(rtt) && rtt >= 0 && rtt <= 5000) {
+        player.rttSamples.push(rtt);
+        if (player.rttSamples.length > 12) player.rttSamples.shift();
+    }
+    if (Number.isFinite(offset) && Math.abs(offset) < 10_000_000_000_000) {
+        player.clockOffsetSamples.push(offset);
+        if (player.clockOffsetSamples.length > 12) player.clockOffsetSamples.shift();
+    }
+}
+
 function medianRtt(player) {
     const samples = [...(player.rttSamples || [])].sort((a, b) => a - b);
     return samples.length ? samples[Math.floor(samples.length / 2)] : 0;
+}
+
+function bestRtt(player) {
+    const samples = (player.rttSamples || []).filter(Number.isFinite);
+    return samples.length ? Math.min(...samples) : 0;
+}
+
+function clockOffset(player) {
+    const samples = [...(player.clockOffsetSamples || [])].sort((a, b) => a - b);
+    return samples.length ? samples[Math.floor(samples.length / 2)] : null;
+}
+
+function connectionQuality(player) {
+    const samples = (player.rttSamples || []).filter(Number.isFinite);
+    if (samples.length < 3) return 'measuring';
+    const sorted = [...samples].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    const jitter = Math.max(...samples) - Math.min(...samples);
+    if (median <= 80 && jitter <= 70) return 'good';
+    if (median <= 160 && jitter <= 140) return 'fair';
+    return 'unstable';
 }
 
 function getPlayers(room) {
@@ -142,7 +177,10 @@ function getPlayers(room) {
         teamId: player.teamId,
         playerState: player.playerState,
         connectionStatus: player.connectionStatus,
-        rtt: Math.round(medianRtt(player))
+        rtt: Math.round(medianRtt(player)),
+        bestRtt: Math.round(bestRtt(player)),
+        clockSynced: clockOffset(player) !== null,
+        connectionQuality: connectionQuality(player)
     }));
 }
 
@@ -151,6 +189,8 @@ function serialize(room) {
         roomCode: room.roomCode,
         roundNumber: room.roundNumber,
         roomState: room.roomState,
+        serverTime: Date.now(),
+        openTimestamp: room.openTimestamp,
         lastJudgement: room.lastJudgement,
         winner: room.winner,
         rules: room.rules,
@@ -226,6 +266,6 @@ function createTeams(roomCode, requestedTeams) {
 
 module.exports = {
     DEFAULT_RULES, createRoom, getRoom, verifyHostPin, setHostSocket, isHost,
-    joinPlayer, disconnectPlayer, getPlayer, recordRtt, medianRtt, getPlayers,
+    joinPlayer, disconnectPlayer, getPlayer, recordRtt, recordClockSync, medianRtt, bestRtt, clockOffset, getPlayers,
     serialize, cleanupOldRooms, createTeams
 };
