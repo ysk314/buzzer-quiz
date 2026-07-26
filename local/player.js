@@ -1,14 +1,15 @@
 const socket = io();
 const params = new URLSearchParams(location.search);
-let roomCode = params.get('room')?.toUpperCase() || '';
+let roomCode = params.get('room')?.toUpperCase() || localStorage.getItem('buzzer_local_room') || '';
 let token = localStorage.getItem('buzzer_local_token');
-let displayName;
+let displayName = localStorage.getItem('buzzer_local_name') || '';
 let room;
 let previousScore = 0;
 let namesData;
 let previousState;
 let previousWinner;
-let pingTimer;
+let pingTimerId = null;
+
 const el = id => document.getElementById(id);
 el('room').value = roomCode;
 
@@ -17,8 +18,6 @@ fetch('/assets/data/names.json')
     .then(data => { namesData = data; })
     .catch(() => { namesData = { modifiers: [''], characters: ['Player'] }; });
 
-tryAutoResume();
-
 el('room').addEventListener('input', event => {
     event.target.value = event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
 });
@@ -26,10 +25,31 @@ el('room').addEventListener('input', event => {
 el('checkRoomButton').onclick = () => {
     roomCode = el('room').value.trim().toUpperCase();
     if (!/^[A-Z0-9]{6}$/.test(roomCode)) return alert('ルームコードは6文字です');
+    localStorage.setItem('buzzer_local_room', roomCode);
+    if (token && displayName) {
+        joinAs(displayName, { reconnect: true, fallbackToNameSelection: true });
+    } else {
+        showNameSelection();
+    }
+};
+
+function showNameSelection() {
     el('roomCodeSection').classList.add('hidden');
     el('nameSection').classList.remove('hidden');
+    if (token && displayName) {
+        el('reconnectHint').className = 'mb-md';
+        el('reconnectHint').innerHTML = `
+            <button class="btn btn-secondary" id="reconnectButton" style="width:100%;">
+                前回の名前「${escapeHtml(displayName)}」で復帰
+            </button>
+        `;
+        el('reconnectButton').onclick = () => joinAs(displayName, { reconnect: true, fallbackToNameSelection: true });
+    } else {
+        el('reconnectHint').classList.add('hidden');
+        el('reconnectHint').innerHTML = '';
+    }
     generateNameOptions();
-};
+}
 
 function generateNameOptions() {
     if (!namesData) {
@@ -50,11 +70,21 @@ function generateNameOptions() {
 
 el('shuffleNamesButton').onclick = generateNameOptions;
 
-function joinAs(name) {
+function joinAs(name, options = {}) {
     displayName = name;
-    socket.emit('joinRoom', { roomCode, token, displayName }, result => {
-        if (!result.success) return alert('ルームが見つかりません');
+    socket.emit('joinRoom', { roomCode, token: options.reconnect ? token : null, displayName }, result => {
+        if (!result.success) {
+            if (options.fallbackToNameSelection) {
+                token = null;
+                localStorage.removeItem('buzzer_local_token');
+                showNameSelection();
+                return;
+            }
+            alert('ルームが見つかりません');
+            return;
+        }
         token = result.token;
+        roomCode = result.room.roomCode || roomCode;
         localStorage.setItem('buzzer_local_token', token);
         localStorage.setItem('buzzer_local_name', result.player.displayName);
         localStorage.setItem('buzzer_local_room', roomCode);
@@ -67,45 +97,21 @@ function joinAs(name) {
     });
 }
 
-function tryAutoResume() {
-    const savedName = localStorage.getItem('buzzer_local_name');
-    const savedRoom = localStorage.getItem('buzzer_local_room');
-    if (!token || !savedName || !savedRoom) return;
-    if (roomCode && roomCode !== savedRoom) return;
-    roomCode = savedRoom;
-    displayName = savedName;
-    el('room').value = roomCode;
-    socket.emit('joinRoom', { roomCode, token, displayName }, result => {
-        if (!result.success) return;
-        el('join').classList.add('hidden');
-        el('play').classList.remove('hidden');
-        el('me').textContent = result.player.displayName;
-        render(result.room);
-        startPing();
-    });
-}
-
 function startPing() {
-    if (pingTimer) clearInterval(pingTimer);
-    pingTimer = setInterval(() => socket.emit('ping', { roomCode, token, sentAt: Date.now() }, () => {}), 3000);
+    if (pingTimerId) return;
+    pingTimerId = setInterval(() => {
+        socket.emit('ping', { roomCode, token, sentAt: Date.now() }, () => {});
+    }, 3000);
 }
 
 socket.on('connect', () => {
     const savedName = localStorage.getItem('buzzer_local_name');
     const savedRoom = localStorage.getItem('buzzer_local_room');
-    if (!token || !savedName || !savedRoom || el('play').classList.contains('hidden')) return;
-    if (roomCode && roomCode !== savedRoom) return;
-    roomCode = savedRoom;
+    if (!token || !savedName || !savedRoom) return;
+    roomCode = params.get('room')?.toUpperCase() || savedRoom;
     displayName = savedName;
-    socket.emit('joinRoom', { roomCode, token, displayName }, result => {
-        if (result.success) {
-            el('join').classList.add('hidden');
-            el('play').classList.remove('hidden');
-            el('me').textContent = result.player.displayName;
-            render(result.room);
-            startPing();
-        }
-    });
+    el('room').value = roomCode;
+    joinAs(displayName, { reconnect: true, fallbackToNameSelection: false });
 });
 
 socket.on('disconnect', () => {
@@ -114,6 +120,8 @@ socket.on('disconnect', () => {
 
 el('exit').onclick = () => {
     if (confirm('退出しますか？')) {
+        localStorage.removeItem('buzzer_local_token');
+        localStorage.removeItem('buzzer_local_name');
         socket.disconnect();
         location.href = 'index.html';
     }
@@ -121,7 +129,6 @@ el('exit').onclick = () => {
 
 function playSound(name) {
     const sound = new Audio(`/assets/sounds/${name}.mp3`);
-    sound.currentTime = 0;
     sound.play().catch(() => {});
 }
 
@@ -137,14 +144,7 @@ el('buzzer').onclick = () => socket.emit('buzz', { roomCode, token }, () => {});
 document.querySelectorAll('[data-vote]').forEach(button => button.onclick = () => socket.emit('supportVote', {
     roomCode, token, choice: button.dataset.vote
 }, result => {
-    if (!result.success) {
-        el('voteStatus').textContent = '投票を受け付けられませんでした';
-        return;
-    }
-    document.querySelectorAll('[data-vote]').forEach(voteButton => { voteButton.disabled = true; });
-    el('voteStatus').textContent = button.dataset.vote === 'support'
-        ? '○を選びました。判定を待っています。'
-        : '×を選びました。判定を待っています。';
+    if (!result?.success) el('voteStatus').textContent = '投票を受け付けられませんでした';
 }));
 socket.on('roomUpdate', render);
 
@@ -153,14 +153,12 @@ function render(nextRoom) {
     room = nextRoom;
     const me = room.players.find(player => player.playerToken === token);
     if (!me) return;
-    el('score').textContent = me.score;
-    const teamMode = room.rules?.teamMode;
-    const score = scoreOf(me);
-    el('score').textContent = score;
-    el('myIndividualScore').textContent = score;
-    renderTeamHeader(me, room.teams || {}, teamMode);
+    const myScore = scoreOf(me);
+    el('score').textContent = myScore;
+    el('individualScore').textContent = myScore;
+    renderTeamStatus(me);
     if (previousState === 'LOCKED' && previousWinner === token && !room.winner) {
-        const correct = score > previousScore;
+        const correct = myScore > previousScore;
         showResult(correct);
         playSound(correct ? 'correct' : 'wrong');
     }
@@ -182,7 +180,6 @@ function render(nextRoom) {
     el('buzzer').classList.toggle('locked', !canBuzz && !winner);
     el('buzzer').classList.toggle('hidden', room.roomState === 'FINISHED');
     el('finishText').classList.toggle('hidden', room.roomState !== 'FINISHED');
-    el('play').classList.toggle('game-finished', room.roomState === 'FINISHED');
     const vote = room.supportVotes?.[token];
     const isPenaltyLocked = me.playerState === 'LOCKED_PENALTY_THIS' || me.playerState === 'LOCKED_PENALTY_NEXT';
     const canVote = room.rules.answerRule === 'support' && room.roomState === 'LOCKED' && winner && winner.playerToken !== token && !isPenaltyLocked;
@@ -192,55 +189,64 @@ function render(nextRoom) {
         el('voteStatus').textContent = vote ? (vote.choice === 'support' ? '○を選びました' : '×を選びました') : '正解なら○に+1pt。不正解なら○を選んだ人は当問ロックです。';
         document.querySelectorAll('[data-vote]').forEach(button => button.disabled = Boolean(vote));
     }
-    renderRankings(room.players || [], room.teams || {}, room.rules || {});
-    previousScore = scoreOf(me);
+    renderRanking();
+    previousScore = myScore;
     previousState = room.roomState;
     previousWinner = winner?.playerToken;
 }
 
-function renderTeamHeader(me, teams, teamMode) {
-    const team = me.teamId ? teams[me.teamId] : null;
-    const showTeam = Boolean(teamMode && team);
-    el('teamScoreBlock').classList.toggle('hidden', !showTeam);
-    el('individualScoreBlock').classList.toggle('hidden', !showTeam);
-    el('myTeamBadge').classList.toggle('hidden', !showTeam);
-    if (!showTeam) return;
-    const color = team.color || 'var(--accent-cyan)';
-    el('teamScore').textContent = team.score || 0;
+function renderTeamStatus(me) {
+    const team = room.rules?.teamMode && me.teamId ? room.teams?.[me.teamId] : null;
+    el('soloScoreBlock').classList.toggle('hidden', Boolean(team));
+    el('teamScoreBlock').classList.toggle('hidden', !team);
+    el('myTeamBadge').classList.toggle('hidden', !team);
+    if (!team) return;
     el('myTeamName').textContent = team.teamName || 'チーム';
-    el('myTeamName').style.color = color;
+    el('myTeamName').style.color = team.color || 'var(--accent-cyan)';
+    el('teamScore').textContent = team.score || 0;
+    el('teamScoreBlock').style.border = `1px solid ${team.color || 'var(--accent-cyan)'}`;
     el('myTeamBadge').textContent = team.teamName || 'チーム';
-    el('myTeamBadge').style.background = color;
-    el('teamScoreBlock').style.border = `1px solid ${color}`;
+    el('myTeamBadge').style.background = team.color || 'var(--accent-cyan)';
 }
 
-function renderRankings(players, teams, rules) {
-    el('ranking').innerHTML = [...players].sort((a, b) => scoreOf(b) - scoreOf(a)).slice(0, 5).map((player, index) => {
+function renderRanking() {
+    el('ranking').innerHTML = [...room.players].sort((a, b) => scoreOf(b) - scoreOf(a)).slice(0, 5).map((player, index) => {
         const medal = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : '';
         return `<div class="ranking-item ${player.playerToken === token ? 'highlight' : ''}"><span class="ranking-rank ${medal}">${index + 1}</span><span class="ranking-name">${escapeHtml(player.displayName)}</span><span class="ranking-score">${scoreOf(player)}pt</span></div>`;
     }).join('');
-    const teamArray = Object.values(teams || {});
-    if (rules.teamMode && teamArray.length > 0) {
-        const playerMap = Object.fromEntries(players.map(player => [player.playerToken, player]));
-        el('teamRanking').innerHTML = teamArray.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 5).map((team, index) => {
-            const memberTokens = team.members?.length ? team.members : players.filter(player => player.teamId === team.teamId).map(player => player.playerToken);
-            const chips = memberTokens.map(memberToken => playerMap[memberToken]).filter(Boolean).map(player =>
-                `<span class="team-member-chip">${escapeHtml(player.displayName)} ${scoreOf(player)}pt</span>`).join('');
-            return `
-                <div class="ranking-item team-ranking-item">
-                    <div class="team-ranking-header" style="--team-color: ${team.color || 'var(--accent-cyan)'};">
-                        <span class="ranking-rank">${index + 1}</span>
-                        <span class="team-name">${escapeHtml(team.teamName || 'チーム')}</span>
-                        <span class="team-score">${team.score || 0}pt</span>
-                    </div>
-                    <div class="team-member-chips">${chips || '<span class="text-muted">メンバーなし</span>'}</div>
-                </div>
-            `;
-        }).join('');
-    } else {
-        el('teamRanking').innerHTML = `<div class="text-muted">${rules.teamMode ? 'チーム未作成です' : 'チーム戦なし'}</div>`;
+
+    const teams = Object.values(room.teams || {});
+    if (!room.rules?.teamMode) {
+        el('teamRanking').innerHTML = '<p class="text-muted">チーム戦なし</p>';
+        return;
     }
+    if (!teams.length) {
+        el('teamRanking').innerHTML = '<p class="text-muted">チーム未作成です</p>';
+        return;
+    }
+    const playersByToken = Object.fromEntries(room.players.map(player => [player.playerToken, player]));
+    el('teamRanking').innerHTML = teams.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 5).map((team, index) => {
+        const members = (team.members || []).map(memberToken => playersByToken[memberToken]).filter(Boolean);
+        const memberList = members.map(player => `<span class="team-member-chip">${escapeHtml(player.displayName)} ${scoreOf(player)}pt</span>`).join('');
+        return `
+            <div class="ranking-item team-ranking-item">
+                <div class="team-ranking-header" style="--team-color:${team.color || 'var(--accent-cyan)'};">
+                    <span class="ranking-rank">${index + 1}</span>
+                    <span class="team-name">${escapeHtml(team.teamName || 'チーム')}</span>
+                    <span class="team-score">${team.score || 0}pt</span>
+                </div>
+                <div class="team-member-chips">${memberList || '<span class="text-muted">メンバーなし</span>'}</div>
+            </div>
+        `;
+    }).join('');
 }
 
-function scoreOf(player) { return player.individualScore !== undefined ? player.individualScore : (player.score || 0); }
-function escapeHtml(value) { const div = document.createElement('div'); div.textContent = value; return div.innerHTML; }
+function scoreOf(player) {
+    return player?.individualScore !== undefined ? player.individualScore : (player?.score || 0);
+}
+
+function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value;
+    return div.innerHTML;
+}

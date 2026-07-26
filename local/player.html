@@ -16,11 +16,15 @@
             <h1>🎮 参加</h1>
             <div id="roomCodeSection">
                 <p class="text-secondary">ローカル早押しクイズに参加します</p>
-                <label class="input-group">ルームコード<input class="input" id="room" maxlength="6" autocomplete="off"></label>
+                <label class="input-group">
+                    ルームコード
+                    <input class="input" id="room" maxlength="6" autocomplete="off">
+                </label>
                 <button class="btn btn-primary btn-large" id="checkRoomButton">ルームを確認</button>
             </div>
             <div id="nameSection" class="hidden">
                 <p class="text-secondary mb-md">名前を選んでください</p>
+                <div id="reconnectHint" class="hidden mb-md"></div>
                 <div id="nameOptions" class="name-options"></div>
                 <button class="btn btn-secondary mt-md" id="shuffleNamesButton">🔄 他の名前を見る</button>
             </div>
@@ -31,21 +35,23 @@
         <header class="local-player-header">
             <div>
                 <span class="local-player-name" id="me"></span>
+                <span class="badge badge-open">PLAYER</span>
                 <span class="team-badge hidden" id="myTeamBadge"></span>
             </div>
             <div class="score-stack">
-                <div class="team-score-block hidden" id="teamScoreBlock">
+                <span class="local-score" id="soloScoreBlock"><span id="score">0</span>pt</span>
+                <span class="team-score-block hidden" id="teamScoreBlock">
                     <span class="team-name" id="myTeamName"></span>
                     <span class="team-score"><span id="teamScore">0</span>pt</span>
-                </div>
-                <div class="individual-score hidden" id="individualScoreBlock">個人 <span id="myIndividualScore">0</span>pt</div>
-                <span class="local-score"><span id="score">0</span>pt</span>
+                    <span class="individual-score">個人 <span id="individualScore">0</span>pt</span>
+                </span>
                 <button id="exit" class="btn btn-small btn-secondary">退出</button>
             </div>
         </header>
+
         <section class="local-buzzer-area">
+            <h2 class="hidden" id="finishText">🏆 最終結果 🏆</h2>
             <p id="status" class="local-status">接続中...</p>
-            <h2 class="hidden" id="finishText" style="font-size: 2rem; color: var(--accent-yellow); margin: 8px 0;">🏁 結果発表</h2>
             <button id="buzzer" class="local-buzzer" disabled>PUSH!</button>
             <div id="vote" class="local-vote hidden">
                 <strong><span id="answerer"></span>さんの回答を支持しますか？</strong>
@@ -56,6 +62,7 @@
                 <p id="voteStatus" class="text-secondary mt-md"></p>
             </div>
         </section>
+
         <section class="card local-ranking">
             <div class="local-ranking-title">
                 <h3>🏆 ランキング</h3>
@@ -63,16 +70,17 @@
             </div>
             <div class="ranking-columns mt-md">
                 <div class="ranking-block">
-                    <h4>チーム</h4>
-                    <div id="teamRanking" class="ranking-list"></div>
+                    <h4>個人</h4>
+                    <div id="ranking" class="local-players"></div>
                 </div>
                 <div class="ranking-block">
-                    <h4>個人</h4>
-                    <div id="ranking" class="ranking-list"></div>
+                    <h4>チーム</h4>
+                    <div id="teamRanking" class="local-players"></div>
                 </div>
             </div>
         </section>
     </main>
+
     <div id="resultOverlay" class="local-result-overlay hidden">
         <div class="local-result-content">
             <div id="resultIcon"></div>
