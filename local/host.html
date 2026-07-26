@@ -21,11 +21,30 @@
                     <button class="btn btn-primary btn-large" id="createRoomBtn" style="width: 100%;">
                         📝 ルームを作成
                     </button>
+                    <button class="btn btn-secondary btn-large" id="showResumeBtn" style="width: 100%;">
+                        🔄 ルームを再開する
+                    </button>
                     <button class="btn btn-secondary" onclick="location.href='./'" style="width: 100%;">
                         🏠 TOPへ戻る
                     </button>
                 </div>
                 <p class="text-muted mt-lg">このMacのファイアウォール確認が出た場合は許可してください。</p>
+            </div>
+
+            <div id="resumeSection" class="hidden">
+                <h3 class="mb-md">ルーム再開</h3>
+                <div class="input-group text-left" style="margin-bottom: 16px;">
+                    <label>ルームコード (6文字)</label>
+                    <input type="text" class="input" id="resumeRoomCode" placeholder="ABC123" maxlength="6">
+                </div>
+                <div class="input-group text-left">
+                    <label>ホストPIN (4桁)</label>
+                    <input type="text" class="input" id="resumePin" placeholder="1234" maxlength="4">
+                </div>
+                <div class="control-buttons mt-lg">
+                    <button class="btn btn-secondary" id="backToChoiceFromResume">戻る</button>
+                    <button class="btn btn-primary" id="resumeRoomBtn">再開する</button>
+                </div>
             </div>
 
             <div id="roomCreatedSection" class="hidden">
@@ -95,7 +114,16 @@
 
                 <div id="finalRankingSection" class="hidden">
                     <h3 class="text-center text-accent mb-md">🏆 最終結果 🏆</h3>
-                    <ul class="ranking-list" id="hostIndividualRankingList"></ul>
+                    <div class="final-ranking-grid">
+                        <div>
+                            <h4 class="text-center mb-sm">チーム</h4>
+                            <ul class="ranking-list" id="hostTeamRankingList"></ul>
+                        </div>
+                        <div>
+                            <h4 class="text-center mb-sm">個人</h4>
+                            <ul class="ranking-list" id="hostIndividualRankingList"></ul>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="controlSection">
@@ -194,6 +222,25 @@
                 <div class="setting-options">
                     <button class="setting-option active" data-setting="allowNegative" data-value="false">0まで</button>
                     <button class="setting-option" data-setting="allowNegative" data-value="true">マイナスあり</button>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <span class="setting-label">チーム戦</span>
+                <div class="setting-options">
+                    <label class="toggle-inline">
+                        <input type="checkbox" id="teamModeToggle">
+                        <span>チーム戦を有効にする</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="setting-row hidden" id="teamSettingsRow">
+                <span class="setting-label">チーム数</span>
+                <div class="setting-options team-settings">
+                    <input type="number" id="numTeamsInput" min="2" value="2" class="input-small">
+                    <span class="text-muted" id="teamCountHint"></span>
+                    <button class="btn btn-small btn-secondary" id="createTeamsBtn">チーム作成</button>
                 </div>
             </div>
         </div>

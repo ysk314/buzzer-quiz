@@ -139,7 +139,20 @@ io.on('connection', socket => {
         const room = roomManager.getRoom(roomCode);
         if (!host || !room || !roomManager.isHost(roomCode, socket.id)) return callback({ success: false });
         room.rules = { ...room.rules, ...rules };
+        if (rules.teamMode === false) {
+            room.teams = {};
+            for (const player of room.players.values()) {
+                player.teamId = null;
+                player.individualScore = player.score || 0;
+            }
+        }
         callback({ success: true });
+        emitRoom(roomCode);
+    });
+
+    socket.on('createTeams', ({ roomCode, numTeams }, callback) => {
+        if (!host || joinedRoom !== roomCode || !roomManager.isHost(roomCode, socket.id)) return callback({ success: false });
+        callback(roomManager.createTeams(roomCode, numTeams));
         emitRoom(roomCode);
     });
 

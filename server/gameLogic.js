@@ -11,6 +11,7 @@ function snapshot(room) {
         winner: room.winner,
         supportVotes: room.supportVotes,
         rules: room.rules,
+        teams: room.teams || {},
         players: Array.from(room.players.entries()).map(([token, player]) => [token, { ...player }])
     }));
 }
@@ -95,19 +96,40 @@ function judge(roomCode, result) {
     save(room);
     const winner = room.players.get(room.winner.playerToken);
     const supportRule = room.rules.answerRule === 'support';
+    const addPoints = (player, points) => {
+        const current = player.individualScore !== undefined ? player.individualScore : (player.score || 0);
+        player.individualScore = current + points;
+        player.score = player.individualScore;
+        if (room.rules.teamMode && player.teamId && room.teams?.[player.teamId]) {
+            room.teams[player.teamId].score = (room.teams[player.teamId].score || 0) + points;
+        }
+    };
+    const subtractPoints = (player, points) => {
+        const current = player.individualScore !== undefined ? player.individualScore : (player.score || 0);
+        let nextScore = current - points;
+        if (!room.rules.allowNegative && nextScore < room.rules.minScore) nextScore = room.rules.minScore;
+        const delta = nextScore - current;
+        player.individualScore = nextScore;
+        player.score = nextScore;
+        if (room.rules.teamMode && player.teamId && room.teams?.[player.teamId]) {
+            let teamScore = (room.teams[player.teamId].score || 0) + delta;
+            if (!room.rules.allowNegative && teamScore < room.rules.minScore) teamScore = room.rules.minScore;
+            room.teams[player.teamId].score = teamScore;
+        }
+    };
     if (result === 'correct') {
         room.lastJudgement = 'correct';
-        winner.score += supportRule ? 2 : room.rules.correctPoints;
+        addPoints(winner, supportRule ? 2 : room.rules.correctPoints);
         if (supportRule) {
             for (const [token, vote] of Object.entries(room.supportVotes)) {
-                if (vote.choice === 'support') room.players.get(token).score += 1;
+                if (vote.choice === 'support') addPoints(room.players.get(token), 1);
             }
         }
         room.roomState = 'WAITING';
         for (const player of room.players.values()) player.playerState = 'READY';
     } else {
         room.lastJudgement = 'wrong';
-        winner.score = Math.max(room.rules.allowNegative ? -Infinity : room.rules.minScore, winner.score - room.rules.wrongPoints);
+        subtractPoints(winner, room.rules.wrongPoints);
         if (room.rules.penaltyType === 'thisRound') winner.playerState = 'LOCKED_PENALTY_THIS';
         if (room.rules.penaltyType === 'nextRound') {
             winner.playerState = 'LOCKED_PENALTY_THIS';
@@ -155,6 +177,7 @@ function undo(roomCode) {
     room.winner = previous.winner;
     room.supportVotes = previous.supportVotes || {};
     room.rules = previous.rules || room.rules;
+    room.teams = previous.teams || {};
     room.players = new Map(previous.players);
     room.pendingBuzzes = [];
     room.buzzTimer = null;

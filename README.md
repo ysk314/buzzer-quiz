@@ -27,7 +27,7 @@
 
 ### 4. アプリに設定を貼り付け
 
-`public/js/firebase-app.js` を開いて、上部の設定を書き換え:
+`docs/js/firebase-app.js` を開いて、上部の設定を書き換え:
 
 ```javascript
 const firebaseConfig = {
@@ -45,15 +45,15 @@ const firebaseConfig = {
 
 GitHub Desktopで:
 1. 「Add」→「Add Existing Repository」
-2. `/Users/yasuki/Documents/プログラミング/BuzzerQuiz/public` フォルダを選択
+2. `/Users/yasuki/Documents/GitHub/BuzzerQuiz` フォルダを選択
 3. または 新規リポジトリ「buzzer-quiz」を作成
-4. `public`フォルダの中身をコミット → Publish
+4. 変更内容をコミット → Publish
 
 ### 6. GitHub Pagesを有効化
 
 1. GitHubリポジトリ → Settings → Pages
 2. Source: 「Deploy from a branch」
-3. Branch: `main` / `/(root)`
+3. Branch: `main` / `/docs`
 4. Save
 
 数分後、`https://ysk314.github.io/buzzer-quiz/` で公開！
@@ -64,12 +64,15 @@ GitHub Desktopで:
 
 ```
 BuzzerQuiz/
-└── public/              ← これをGitHubにアップロード
-    ├── index.html       # トップページ
-    ├── host.html        # ホスト画面
-    ├── player.html      # プレイヤー画面
-    ├── css/styles.css   # スタイル
-    └── js/firebase-app.js # Firebase連携
+├── docs/                ← GitHub Pagesで公開するオンライン版
+│   ├── index.html       # トップページ
+│   ├── host.html        # ホスト画面
+│   ├── player.html      # プレイヤー画面
+│   ├── css/styles.css   # スタイル
+│   └── js/firebase-app.js # Firebase連携
+├── local/               # このMacをサーバーにして遊ぶローカル版
+├── server/              # ローカル版のNode.jsサーバー
+└── start-local.command  # ローカル版起動用
 ```
 
 ---
@@ -79,12 +82,17 @@ BuzzerQuiz/
 ### ホスト
 1. 「ルームを作る」→ ルームコード＆PIN取得
 2. PIN入力でホスト画面へ
-3. 「解放」で早押し開始 → 「○」「×」で判定
+3. 「クイズスタート」または「回答再開」で早押し開始 → 「○」「×」で判定
 
 ### プレイヤー
 1. ルームコード入力 or QRスキャン
 2. 名前を選んで参加
 3. 早押しボタンをタップ！
+
+### ローカル版
+1. `start-local.command` をダブルクリック
+2. ホスト画面でルームを作成
+3. 表示されたQRコードを同じWi-FiのiPadで読み取って参加
 
 ---
 

@@ -8,8 +8,20 @@ const DEFAULT_RULES = {
     wrongPoints: 0,
     minScore: 0,
     allowNegative: false,
-    penaltyType: 'thisRound'
+    penaltyType: 'thisRound',
+    teamMode: false,
+    numTeams: 2
 };
+
+const TEAM_NAMES = [
+    'サンダー', 'フェニックス', 'オーロラ', 'テンペスト', 'ノヴァ', 'コスモス',
+    'アトラス', 'ブレイズ', 'シリウス', 'ベガ', 'ルビー', 'アクア'
+];
+
+const TEAM_COLORS = [
+    '#00d9ff', '#ff6b6b', '#4ecdc4', '#ffd93d', '#b197fc', '#51cf66',
+    '#ff922b', '#f06595'
+];
 
 function generateRoomCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -40,6 +52,7 @@ function createRoom() {
         pendingBuzzes: [],
         buzzTimer: null,
         supportVotes: {},
+        teams: {},
         players: new Map(),
         history: [],
         createdAt: Date.now()
@@ -84,6 +97,8 @@ function joinPlayer(roomCode, playerToken, displayName, socketId) {
         playerToken,
         displayName: finalName,
         score: 0,
+        individualScore: 0,
+        teamId: null,
         playerState: 'READY',
         penaltyNextRound: false,
         socketId,
@@ -123,6 +138,8 @@ function getPlayers(room) {
         playerToken: player.playerToken,
         displayName: player.displayName,
         score: player.score,
+        individualScore: player.individualScore,
+        teamId: player.teamId,
         playerState: player.playerState,
         connectionStatus: player.connectionStatus,
         rtt: Math.round(medianRtt(player))
@@ -138,6 +155,7 @@ function serialize(room) {
         winner: room.winner,
         rules: room.rules,
         supportVotes: room.supportVotes,
+        teams: room.teams || {},
         pending: room.pendingBuzzes.length > 0,
         canUndo: room.history.length > 0,
         players: getPlayers(room)
@@ -154,8 +172,60 @@ function cleanupOldRooms() {
     }
 }
 
+function shuffleArray(items) {
+    const arr = items.slice();
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+function createTeams(roomCode, requestedTeams) {
+    const room = getRoom(roomCode);
+    if (!room) return { success: false, error: 'ROOM_NOT_FOUND' };
+
+    const players = Array.from(room.players.values());
+    const maxTeams = Math.floor(players.length / 2);
+    if (players.length < 4 || maxTeams < 2) {
+        return { success: false, error: 'NOT_ENOUGH_PLAYERS' };
+    }
+
+    let teamCount = parseInt(requestedTeams, 10);
+    if (!teamCount || Number.isNaN(teamCount)) teamCount = room.rules.numTeams || 2;
+    teamCount = Math.max(2, Math.min(teamCount, maxTeams));
+
+    const teams = {};
+    for (let i = 0; i < teamCount; i++) {
+        const teamId = `team_${i + 1}`;
+        teams[teamId] = {
+            teamId,
+            teamName: TEAM_NAMES[i % TEAM_NAMES.length],
+            score: 0,
+            members: [],
+            color: TEAM_COLORS[i % TEAM_COLORS.length]
+        };
+    }
+
+    const teamIds = Object.keys(teams);
+    shuffleArray(players).forEach((player, index) => {
+        const teamId = teamIds[index % teamIds.length];
+        const individualScore = player.individualScore !== undefined ? player.individualScore : (player.score || 0);
+        player.teamId = teamId;
+        player.individualScore = individualScore;
+        player.score = individualScore;
+        teams[teamId].members.push(player.playerToken);
+        teams[teamId].score += individualScore;
+    });
+
+    room.teams = teams;
+    room.rules.teamMode = true;
+    room.rules.numTeams = teamCount;
+    return { success: true, teamCount };
+}
+
 module.exports = {
     DEFAULT_RULES, createRoom, getRoom, verifyHostPin, setHostSocket, isHost,
     joinPlayer, disconnectPlayer, getPlayer, recordRtt, medianRtt, getPlayers,
-    serialize, cleanupOldRooms
+    serialize, cleanupOldRooms, createTeams
 };
