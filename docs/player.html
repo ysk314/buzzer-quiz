@@ -308,6 +308,7 @@
             let roomState = 'WAITING';
             let prevScore = 0;
             let wasWinner = false;
+            let rejoinCandidates = [];
 
             const joinScreen = document.getElementById('joinScreen');
             const mainScreen = document.getElementById('mainScreen');
@@ -361,29 +362,17 @@
                     try {
                         const roomData = await roomManager.joinRoom(roomCode);
 
-                        if (playerToken && roomData.players && roomData.players[playerToken]) {
-                            await reconnectExistingPlayer(roomData.players[playerToken]);
-                            return;
-                        }
-
-                        if (displayName && savedRoomCode === roomCode && typeof roomManager.reconnectPlayerByName === 'function') {
-                            const restored = await roomManager.reconnectPlayerByName(displayName);
-                            if (restored) {
-                                playerToken = restored.token;
-                                await reconnectExistingPlayer(restored.player);
-                                return;
-                            }
-                        }
-
-                        if (autoReconnect) return;
-                        showNameSelection();
+                        showNameSelection(roomData);
                     } catch (error) {
                         if (!autoReconnect) alert('ルームが見つかりません');
                     }
                 }
 
                 async function reconnectExistingPlayer(existingPlayer) {
-                    const player = await roomManager.addPlayer(playerToken, existingPlayer.displayName);
+                    const player = typeof roomManager.reconnectPlayer === 'function'
+                        ? await roomManager.reconnectPlayer(playerToken)
+                        : await roomManager.addPlayer(playerToken, existingPlayer.displayName);
+                    if (!player) throw new Error('RECONNECT_FAILED');
                     displayName = player.displayName;
                     myScore = player.individualScore !== undefined ? player.individualScore : (player.score || 0);
                     localStorage.setItem('buzzer_player_token', playerToken);
@@ -397,49 +386,61 @@
                     checkRoom({ autoReconnect: false });
                 });
 
-                if (roomFromUrl && (playerToken || displayName)) {
-                    checkRoom({ autoReconnect: true });
+                if (roomFromUrl) {
+                    checkRoom({ autoReconnect: false });
                 }
 
-                function showNameSelection() {
+                async function showNameSelection(roomData = null) {
                     roomCodeSection.classList.add('hidden');
                     nameSection.classList.remove('hidden');
-                    if (playerToken && displayName && savedRoomCode === roomCode) {
+                    if (typeof roomManager.getRejoinCandidates === 'function') {
+                        rejoinCandidates = await roomManager.getRejoinCandidates();
+                    } else {
+                        const players = roomData?.players || {};
+                        rejoinCandidates = Object.entries(players)
+                            .filter(([, player]) => player.connectionStatus === 'offline')
+                            .map(([candidateToken, player]) => ({ ...player, playerToken: candidateToken }));
+                    }
+                    const roomPlayers = roomData?.players || {};
+                    const savedCandidate = playerToken && displayName && savedRoomCode === roomCode && roomPlayers[playerToken]
+                        ? [{ playerToken, displayName: roomPlayers[playerToken].displayName || displayName, saved: true }]
+                        : [];
+                    const candidatesByToken = new Map([...savedCandidate, ...rejoinCandidates].map(player => [player.playerToken, player]));
+                    const candidates = Array.from(candidatesByToken.values());
+                    if (candidates.length) {
                         reconnectHint.className = 'mb-md';
                         reconnectHint.innerHTML = `
-                            <button class="btn btn-secondary" id="reconnectButton" style="width:100%;">
-                                前回の名前「${escapeHtml(displayName)}」で復帰
-                            </button>
+                            <p class="text-secondary mb-sm">復帰する名前を選ぶか、新しい名前で参加してください。</p>
+                            <div class="name-options mb-md">
+                                ${candidates.map(player => `
+                                    <button class="name-option" data-rejoin-token="${escapeHtml(player.playerToken)}" data-rejoin-name="${escapeHtml(player.displayName)}">
+                                        ${escapeHtml(player.displayName)}で復帰${player.saved ? '（この端末）' : ''}
+                                    </button>
+                                `).join('')}
+                            </div>
+                            <button class="btn btn-secondary" id="newPlayerButton" style="width:100%;">別の名前で新しく参加</button>
                         `;
-                        document.getElementById('reconnectButton').onclick = async () => {
-                            try {
-                                const roomData = await roomManager.joinRoom(roomCode);
-                                if (playerToken && roomData.players && roomData.players[playerToken]) {
-                                    await reconnectExistingPlayer(roomData.players[playerToken]);
-                                } else if (typeof roomManager.reconnectPlayerByName === 'function') {
-                                    const restored = await roomManager.reconnectPlayerByName(displayName);
-                                    if (restored) {
-                                        playerToken = restored.token;
-                                        await reconnectExistingPlayer(restored.player);
-                                    } else {
-                                        throw new Error('NO_RECONNECT_TARGET');
-                                    }
-                                } else {
-                                    throw new Error('NO_RECONNECT_TARGET');
+                        reconnectHint.querySelectorAll('[data-rejoin-token]').forEach(button => {
+                            button.onclick = async () => {
+                                playerToken = button.dataset.rejoinToken;
+                                displayName = button.dataset.rejoinName;
+                                try {
+                                    await reconnectExistingPlayer({ displayName });
+                                } catch (error) {
+                                    alert('復帰に失敗しました。名前を選び直してください。');
                                 }
-                            } catch (error) {
-                                reconnectHint.classList.add('hidden');
-                                playerToken = null;
-                                localStorage.removeItem('buzzer_player_token');
-                                generateNameOptions();
-                                alert('復帰に失敗しました。名前を選び直してください。');
-                            }
+                            };
+                        });
+                        document.getElementById('newPlayerButton').onclick = () => {
+                            playerToken = null;
+                            localStorage.removeItem('buzzer_player_token');
+                            generateNameOptions();
                         };
                     } else {
                         reconnectHint.classList.add('hidden');
                         reconnectHint.innerHTML = '';
                     }
-                    
+
                     // namesData が読み込まれるまで待つ
                     if (!namesData || !namesData.modifiers) {
                         const checkInterval = setInterval(() => {

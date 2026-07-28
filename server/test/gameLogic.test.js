@@ -40,3 +40,15 @@ test('presses before the scheduled open time are rejected', () => {
     assert.equal(result.success, false);
     assert.equal(result.error, 'EARLY_PRESS');
 });
+
+test('rejoin candidates only include offline players', () => {
+    const { roomCode } = roomManager.createRoom();
+    roomManager.joinPlayer(roomCode, 'online-token', 'Online', 'socket-online');
+    roomManager.joinPlayer(roomCode, 'offline-token', 'Offline', 'socket-offline');
+    roomManager.disconnectPlayer(roomCode, 'socket-offline');
+
+    const candidates = roomManager.getRejoinCandidates(roomCode);
+
+    assert.deepEqual(candidates.map(player => player.playerToken), ['offline-token']);
+    assert.equal(candidates[0].displayName, 'Offline');
+});

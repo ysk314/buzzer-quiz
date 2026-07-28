@@ -83,6 +83,22 @@ io.on('connection', socket => {
         emitRoom(roomCode);
     });
 
+    socket.on('rejoinRoom', ({ roomCode, token }, callback) => {
+        const player = roomManager.rejoinPlayer(roomCode, token, socket.id);
+        if (!player) return callback({ success: false, error: 'REJOIN_TARGET_NOT_FOUND' });
+        joinedRoom = roomCode;
+        playerToken = token;
+        socket.join(roomCode);
+        callback({ success: true, token, player, room: roomManager.serialize(roomManager.getRoom(roomCode)) });
+        emitRoom(roomCode);
+    });
+
+    socket.on('rejoinCandidates', ({ roomCode }, callback) => {
+        const room = roomManager.getRoom(roomCode);
+        if (!room) return callback({ success: false, error: 'ROOM_NOT_FOUND' });
+        callback({ success: true, players: roomManager.getRejoinCandidates(roomCode) });
+    });
+
     socket.on('ping', ({ roomCode, token, sentAt }, callback) => {
         if (joinedRoom === roomCode && playerToken === token) roomManager.recordRtt(roomCode, token, Date.now() - sentAt);
         callback({ serverTime: Date.now() });

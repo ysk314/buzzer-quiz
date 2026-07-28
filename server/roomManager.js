@@ -110,6 +110,14 @@ function joinPlayer(roomCode, playerToken, displayName, socketId) {
     return player;
 }
 
+function rejoinPlayer(roomCode, playerToken, socketId) {
+    const player = getPlayer(roomCode, playerToken);
+    if (!player) return null;
+    player.socketId = socketId;
+    player.connectionStatus = 'online';
+    return player;
+}
+
 function disconnectPlayer(roomCode, socketId) {
     const room = getRoom(roomCode);
     if (!room) return;
@@ -120,6 +128,20 @@ function disconnectPlayer(roomCode, socketId) {
 
 function getPlayer(roomCode, token) {
     return getRoom(roomCode)?.players.get(token);
+}
+
+function getRejoinCandidates(roomCode) {
+    const room = getRoom(roomCode);
+    if (!room) return [];
+    return Array.from(room.players.values())
+        .filter(player => player.connectionStatus === 'offline')
+        .map(player => ({
+            playerToken: player.playerToken,
+            displayName: player.displayName,
+            score: player.score,
+            individualScore: player.individualScore,
+            teamId: player.teamId
+        }));
 }
 
 function recordRtt(roomCode, token, rtt) {
@@ -266,6 +288,6 @@ function createTeams(roomCode, requestedTeams) {
 
 module.exports = {
     DEFAULT_RULES, createRoom, getRoom, verifyHostPin, setHostSocket, isHost,
-    joinPlayer, disconnectPlayer, getPlayer, recordRtt, recordClockSync, medianRtt, bestRtt, clockOffset, getPlayers,
+    joinPlayer, rejoinPlayer, disconnectPlayer, getPlayer, getRejoinCandidates, recordRtt, recordClockSync, medianRtt, bestRtt, clockOffset, getPlayers,
     serialize, cleanupOldRooms, createTeams
 };

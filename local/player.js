@@ -13,6 +13,7 @@ let openRefreshTimerId = null;
 let clockOffset = null;
 let clockSamples = [];
 let lastRoomReceivedAt = null;
+let rejoinCandidates = [];
 
 const el = id => document.getElementById(id);
 el('room').value = roomCode;
@@ -30,29 +31,56 @@ el('checkRoomButton').onclick = () => {
     roomCode = el('room').value.trim().toUpperCase();
     if (!/^[A-Z0-9]{6}$/.test(roomCode)) return alert('ルームコードは6文字です');
     localStorage.setItem('buzzer_local_room', roomCode);
-    if (token && displayName) {
-        joinAs(displayName, { reconnect: true, fallbackToNameSelection: true });
-    } else {
-        showNameSelection();
-    }
+    loadRejoinCandidates(showNameSelection);
 };
 
 function showNameSelection() {
     el('roomCodeSection').classList.add('hidden');
     el('nameSection').classList.remove('hidden');
-    if (token && displayName) {
+    const savedCandidate = token && displayName
+        ? [{ playerToken: token, displayName, saved: true }]
+        : [];
+    const candidatesByToken = new Map([...savedCandidate, ...rejoinCandidates].map(player => [player.playerToken, player]));
+    const candidates = Array.from(candidatesByToken.values());
+    if (candidates.length) {
         el('reconnectHint').className = 'mb-md';
         el('reconnectHint').innerHTML = `
-            <button class="btn btn-secondary" id="reconnectButton" style="width:100%;">
-                前回の名前「${escapeHtml(displayName)}」で復帰
-            </button>
+            <p class="text-secondary mb-sm">復帰する名前を選ぶか、新しい名前で参加してください。</p>
+            <div class="name-options mb-md">
+                ${candidates.map(player => `
+                    <button class="name-option" data-rejoin-token="${escapeHtml(player.playerToken)}" data-rejoin-name="${escapeHtml(player.displayName)}">
+                        ${escapeHtml(player.displayName)}で復帰${player.saved ? '（この端末）' : ''}
+                    </button>
+                `).join('')}
+            </div>
+            <button class="btn btn-secondary" id="newPlayerButton" style="width:100%;">別の名前で新しく参加</button>
         `;
-        el('reconnectButton').onclick = () => joinAs(displayName, { reconnect: true, fallbackToNameSelection: true });
+        el('reconnectHint').querySelectorAll('[data-rejoin-token]').forEach(button => {
+            button.onclick = () => {
+                token = button.dataset.rejoinToken;
+                joinAs(button.dataset.rejoinName, { reconnect: true, fallbackToNameSelection: true });
+            };
+        });
+        el('newPlayerButton').onclick = () => {
+            token = null;
+            generateNameOptions();
+        };
     } else {
         el('reconnectHint').classList.add('hidden');
         el('reconnectHint').innerHTML = '';
     }
     generateNameOptions();
+}
+
+function loadRejoinCandidates(callback) {
+    socket.emit('rejoinCandidates', { roomCode }, result => {
+        if (!result?.success) {
+            alert('ルームが見つかりません');
+            return;
+        }
+        rejoinCandidates = result.players || [];
+        callback();
+    });
 }
 
 function generateNameOptions() {
@@ -76,11 +104,14 @@ el('shuffleNamesButton').onclick = generateNameOptions;
 
 function joinAs(name, options = {}) {
     displayName = name;
-    socket.emit('joinRoom', { roomCode, token: options.reconnect ? token : null, displayName }, result => {
+    const eventName = options.reconnect ? 'rejoinRoom' : 'joinRoom';
+    const payload = options.reconnect ? { roomCode, token } : { roomCode, token: null, displayName };
+    socket.emit(eventName, payload, result => {
         if (!result.success) {
             if (options.fallbackToNameSelection) {
                 token = null;
                 localStorage.removeItem('buzzer_local_token');
+                localStorage.removeItem('buzzer_local_name');
                 showNameSelection();
                 return;
             }
@@ -141,6 +172,7 @@ socket.on('connect', () => {
     const savedName = localStorage.getItem('buzzer_local_name');
     const savedRoom = localStorage.getItem('buzzer_local_room');
     if (!token || !savedName || !savedRoom) return;
+    if (el('play').classList.contains('hidden')) return;
     roomCode = params.get('room')?.toUpperCase() || savedRoom;
     displayName = savedName;
     el('room').value = roomCode;

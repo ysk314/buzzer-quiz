@@ -267,6 +267,32 @@ class RoomManager {
         return { token, player: { ...player, playerToken: token, connectionStatus: 'online' } };
     }
 
+    async getRejoinCandidates() {
+        const playersSnapshot = await this.roomRef.child('players').once('value');
+        const players = playersSnapshot.val() || {};
+        return Object.entries(players)
+            .filter(([, player]) => player.connectionStatus === 'offline')
+            .map(([token, player]) => ({
+                playerToken: token,
+                displayName: player.displayName,
+                score: player.score,
+                individualScore: player.individualScore,
+                teamId: player.teamId
+            }));
+    }
+
+    async reconnectPlayer(playerToken) {
+        const playerRef = this.roomRef.child(`players/${playerToken}`);
+        const snapshot = await playerRef.once('value');
+        if (!snapshot.exists()) return null;
+        const player = snapshot.val();
+        await playerRef.update({
+            connectionStatus: 'online',
+            lastSeen: firebase.database.ServerValue.TIMESTAMP
+        });
+        return { ...player, playerToken, connectionStatus: 'online' };
+    }
+
     // プレイヤー切断
     async disconnectPlayer(playerToken) {
         await this.roomRef.child(`players/${playerToken}`).update({
