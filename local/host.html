@@ -103,7 +103,10 @@
                 </div>
                 <div id="roomStateBadge" class="badge badge-waiting">WAITING</div>
             </div>
-            <button id="backToSetupBtn" class="btn btn-small btn-secondary">戻る</button>
+            <div class="control-buttons" style="margin-top: 0;">
+                <button id="showShareBtn" class="btn btn-small btn-secondary">📱 参加QR</button>
+                <button id="backToSetupBtn" class="btn btn-small btn-secondary">戻る</button>
+            </div>
         </header>
 
         <div class="main-grid">
@@ -176,6 +179,21 @@
 
         <button class="btn btn-icon btn-secondary settings-toggle" id="settingsToggle">⚙️</button>
     </main>
+
+    <div id="shareOverlay" class="share-overlay">
+        <div class="share-modal card text-center">
+            <div class="flex-between mb-md">
+                <h2>📱 参加QRコード</h2>
+                <button class="btn btn-small btn-secondary" id="closeShareOverlay">✕ 閉じる</button>
+            </div>
+            <p class="text-secondary mb-md">途中参加・復帰する人にこのQRコードを見せてください。</p>
+            <div class="local-qr-wrap">
+                <img id="shareQrCode" class="local-qr" alt="参加用QRコード">
+            </div>
+            <input type="text" class="input" id="shareModalUrl" readonly style="text-align: center;">
+            <button class="btn btn-small btn-secondary mt-sm" id="copyShareModalUrl">📋 コピー</button>
+        </div>
+    </div>
 
     <div id="settingsOverlay" class="settings-overlay">
         <div class="settings-modal">

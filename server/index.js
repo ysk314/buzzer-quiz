@@ -48,6 +48,10 @@ function emitRoom(roomCode) {
     if (room) io.to(roomCode).emit('roomUpdate', roomManager.serialize(room));
 }
 
+function joinUrl(roomCode) {
+    return `http://${lanAddress()}:${PORT}/local/player.html?room=${roomCode}`;
+}
+
 io.on('connection', socket => {
     let joinedRoom = null;
     let playerToken = null;
@@ -55,7 +59,7 @@ io.on('connection', socket => {
 
     socket.on('createRoom', callback => {
         const created = roomManager.createRoom();
-        callback({ success: true, ...created, lanUrl: `http://${lanAddress()}:${PORT}/local/` });
+        callback({ success: true, ...created, lanUrl: `http://${lanAddress()}:${PORT}/local/`, joinUrl: joinUrl(created.roomCode) });
     });
 
     socket.on('hostAuth', ({ roomCode, pin }, callback) => {
@@ -64,7 +68,7 @@ io.on('connection', socket => {
         joinedRoom = roomCode;
         host = true;
         socket.join(roomCode);
-        callback({ success: true, room: roomManager.serialize(roomManager.getRoom(roomCode)) });
+        callback({ success: true, joinUrl: joinUrl(roomCode), room: roomManager.serialize(roomManager.getRoom(roomCode)) });
         emitRoom(roomCode);
     });
 

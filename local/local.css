@@ -99,6 +99,25 @@
     display: flex;
 }
 
+.share-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 220;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.82);
+}
+
+.share-overlay.active {
+    display: flex;
+}
+
+.share-modal {
+    width: min(100%, 520px);
+}
+
 .settings-modal {
     background: var(--bg-secondary);
     border-radius: var(--radius-xl);

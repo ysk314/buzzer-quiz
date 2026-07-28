@@ -4,6 +4,7 @@ let pin;
 let room;
 let previousState;
 let judgementTimeoutId = null;
+let joinUrl = '';
 let pendingRules = {
     answerRule: 'classic',
     wrongPoints: 0,
@@ -31,13 +32,12 @@ function showSetupSection(sectionId) {
 el('createRoomBtn').onclick = () => socket.emit('createRoom', result => {
     roomCode = result.roomCode;
     pin = result.pin;
+    joinUrl = result.joinUrl || `${result.lanUrl}player.html?room=${roomCode}`;
     room = null;
     previousState = null;
-    const joinUrl = `${result.lanUrl}player.html?room=${roomCode}`;
     el('displayRoomCode').textContent = roomCode;
     el('displayPin').textContent = pin;
-    el('shareUrl').value = joinUrl;
-    el('qrCode').src = `qr.svg?url=${encodeURIComponent(joinUrl)}`;
+    setShareInfo(joinUrl);
     showSetupSection('roomCreatedSection');
     renderSettings(pendingRules);
 });
@@ -72,6 +72,14 @@ el('backToSetupBtn').onclick = () => {
 el('copyUrlBtn').onclick = async () => {
     await navigator.clipboard?.writeText(el('shareUrl').value);
 };
+el('showShareBtn').onclick = openShareOverlay;
+el('closeShareOverlay').onclick = closeShareOverlay;
+el('shareOverlay').onclick = event => {
+    if (event.target === el('shareOverlay')) closeShareOverlay();
+};
+el('copyShareModalUrl').onclick = async () => {
+    await navigator.clipboard?.writeText(el('shareModalUrl').value);
+};
 
 el('settingsToggle').onclick = openSettings;
 el('settingsTogglePre').onclick = openSettings;
@@ -88,6 +96,7 @@ function enterHostMode({ applyPendingRules } = { applyPendingRules: true }) {
         el('mainScreen').classList.remove('hidden');
         el('headerRoomCode').textContent = roomCode;
         el('headerPin').textContent = pin;
+        if (auth.joinUrl) setShareInfo(auth.joinUrl);
         render(auth.room);
         if (applyPendingRules) {
             socket.emit('updateRules', { roomCode, rules: rulesToApply }, result => {
@@ -95,6 +104,23 @@ function enterHostMode({ applyPendingRules } = { applyPendingRules: true }) {
             });
         }
     });
+}
+
+function setShareInfo(url) {
+    joinUrl = url;
+    el('shareUrl').value = url;
+    el('qrCode').src = `qr.svg?url=${encodeURIComponent(url)}`;
+    el('shareModalUrl').value = url;
+    el('shareQrCode').src = `qr.svg?url=${encodeURIComponent(url)}`;
+}
+
+function openShareOverlay() {
+    if (!joinUrl && roomCode) setShareInfo(`${location.origin}/local/player.html?room=${roomCode}`);
+    el('shareOverlay').classList.add('active');
+}
+
+function closeShareOverlay() {
+    el('shareOverlay').classList.remove('active');
 }
 
 function openSettings() {

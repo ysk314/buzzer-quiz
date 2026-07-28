@@ -117,6 +117,26 @@
             display: flex;
         }
 
+        .share-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 220;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.82);
+        }
+
+        .share-overlay.active {
+            display: flex;
+        }
+
+        .share-modal {
+            max-width: 520px;
+            width: 100%;
+        }
+
         .settings-modal {
             background: var(--bg-secondary);
             border-radius: var(--radius-xl);
@@ -271,7 +291,10 @@
                 </div>
                 <div id="roomStateBadge" class="badge badge-waiting">WAITING</div>
             </div>
-            <button id="backToSetupBtn" class="btn btn-small btn-secondary">戻る</button>
+            <div class="control-buttons" style="margin-top: 0;">
+                <button id="showShareBtn" class="btn btn-small btn-secondary">📱 参加QR</button>
+                <button id="backToSetupBtn" class="btn btn-small btn-secondary">戻る</button>
+            </div>
         </header>
 
         <div class="main-grid">
@@ -364,6 +387,19 @@
         </button>
     </div>
 
+    <div id="shareOverlay" class="share-overlay">
+        <div class="share-modal card text-center">
+            <div class="flex-between mb-md">
+                <h2>📱 参加QRコード</h2>
+                <button class="btn btn-small btn-secondary" id="closeShareOverlay">✕ 閉じる</button>
+            </div>
+            <p class="text-secondary mb-md">途中参加・復帰する人にこのQRコードを見せてください。</p>
+            <div id="shareQrcode" style="display: flex; justify-content: center; margin-bottom: 20px;"></div>
+            <input type="text" class="input" id="shareModalUrl" readonly style="text-align: center;">
+            <button class="btn btn-small btn-secondary mt-sm" id="copyShareModalUrl">📋 コピー</button>
+        </div>
+    </div>
+
     <!-- 設定オーバーレイ -->
     <div id="settingsOverlay" class="settings-overlay">
         <div class="settings-modal">
@@ -449,6 +485,7 @@
             let judgementKey = null;
             let judgementResolvedKey = null;
             let currentPlayerCount = 0;
+            let shareUrl = '';
 
             const setupScreen = document.getElementById('setupScreen');
             const mainScreen = document.getElementById('mainScreen');
@@ -508,19 +545,7 @@
                         const newUrl = `${window.location.pathname}?room=${roomCode}`;
                         window.history.pushState({ path: newUrl }, '', newUrl);
 
-                        const shareUrl = `${window.location.origin}${window.location.pathname.replace('host.html', '')}player.html?room=${roomCode}`;
-                        document.getElementById('shareUrl').value = shareUrl;
-
-                        // QRコード生成
-                        document.getElementById('qrcode').innerHTML = '';
-                        new QRCode(document.getElementById('qrcode'), {
-                            text: shareUrl,
-                            width: 150,
-                            height: 150,
-                            colorDark: '#000000',
-                            colorLight: '#ffffff',
-                            correctLevel: QRCode.CorrectLevel.H
-                        });
+                        setShareInfo(roomCode);
 
                         // PIN表示
                         document.getElementById('roomCreatedMsg').style.display = 'block';
@@ -596,6 +621,7 @@
                         document.getElementById('headerRoomCode').textContent = code;
                         document.getElementById('headerPin').textContent = pin;
                         roomCode = code;
+                        setShareInfo(code);
 
                         // 戻るボタン (Main Screen)
                         document.getElementById('backToSetupBtn').onclick = () => {
@@ -638,6 +664,58 @@
                     }, 2000);
                 });
             });
+
+            document.getElementById('showShareBtn').addEventListener('click', () => {
+                if (!shareUrl && roomCode) setShareInfo(roomCode);
+                document.getElementById('shareOverlay').classList.add('active');
+            });
+
+            document.getElementById('closeShareOverlay').addEventListener('click', () => {
+                document.getElementById('shareOverlay').classList.remove('active');
+            });
+
+            document.getElementById('shareOverlay').addEventListener('click', (event) => {
+                if (event.target === document.getElementById('shareOverlay')) {
+                    document.getElementById('shareOverlay').classList.remove('active');
+                }
+            });
+
+            document.getElementById('copyShareModalUrl').addEventListener('click', () => {
+                const urlInput = document.getElementById('shareModalUrl');
+                urlInput.select();
+                navigator.clipboard.writeText(urlInput.value).then(() => {
+                    document.getElementById('copyShareModalUrl').textContent = '✓ コピーしました';
+                    setTimeout(() => {
+                        document.getElementById('copyShareModalUrl').textContent = '📋 コピー';
+                    }, 2000);
+                });
+            });
+
+            function setShareInfo(code) {
+                shareUrl = `${window.location.origin}${window.location.pathname.replace('host.html', '')}player.html?room=${code}`;
+                document.getElementById('shareUrl').value = shareUrl;
+                document.getElementById('shareModalUrl').value = shareUrl;
+
+                document.getElementById('qrcode').innerHTML = '';
+                new QRCode(document.getElementById('qrcode'), {
+                    text: shareUrl,
+                    width: 150,
+                    height: 150,
+                    colorDark: '#000000',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+
+                document.getElementById('shareQrcode').innerHTML = '';
+                new QRCode(document.getElementById('shareQrcode'), {
+                    text: shareUrl,
+                    width: 220,
+                    height: 220,
+                    colorDark: '#000000',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            }
 
             // 再開実行
             document.getElementById('resumeRoomBtn').onclick = async () => {

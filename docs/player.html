@@ -212,6 +212,7 @@
 
             <div id="nameSection" class="hidden">
                 <p class="text-secondary mb-md">名前を選んでください</p>
+                <div id="reconnectHint" class="hidden mb-md"></div>
                 <div id="nameOptions" class="name-options"></div>
                 <button class="btn btn-secondary mt-md" id="shuffleNamesBtn">
                     🔄 他の名前を見る
@@ -299,7 +300,8 @@
         document.addEventListener('DOMContentLoaded', async () => {
             let roomCode = null;
             let playerToken = localStorage.getItem('buzzer_player_token');
-            let displayName = null;
+            let displayName = localStorage.getItem('buzzer_player_name') || null;
+            let savedRoomCode = localStorage.getItem('buzzer_player_room') || null;
             let myScore = 0;
             let myTeamScore = 0;
             let playerState = 'READY';
@@ -311,6 +313,7 @@
             const mainScreen = document.getElementById('mainScreen');
             const roomCodeSection = document.getElementById('roomCodeSection');
             const nameSection = document.getElementById('nameSection');
+            const reconnectHint = document.getElementById('reconnectHint');
             const roomCodeInput = document.getElementById('roomCodeInput');
             const buzzerBtn = document.getElementById('buzzerBtn');
             const supportVotePanel = document.getElementById('supportVotePanel');
@@ -332,6 +335,8 @@
             const roomFromUrl = urlParams.get('room');
             if (roomFromUrl) {
                 roomCodeInput.value = roomFromUrl.toUpperCase();
+            } else if (savedRoomCode) {
+                roomCodeInput.value = savedRoomCode.toUpperCase();
             }
 
             roomCodeInput.addEventListener('input', (e) => {
@@ -345,36 +350,95 @@
                     return;
                 }
 
-                // ルーム確認
-                document.getElementById('checkRoomBtn').addEventListener('click', async () => {
+                async function checkRoom({ autoReconnect = false } = {}) {
                     roomCode = roomCodeInput.value.trim().toUpperCase();
 
-                if (roomCode.length !== 6) {
-                    alert('ルームコードは6文字です');
-                    return;
-                }
-
-                try {
-                    const roomData = await roomManager.joinRoom(roomCode);
-
-                    if (playerToken && roomData.players && roomData.players[playerToken]) {
-                        // 既存プレイヤーとして再接続
-                        const player = await roomManager.addPlayer(playerToken, roomData.players[playerToken].displayName);
-                        displayName = player.displayName;
-                        myScore = player.individualScore !== undefined ? player.individualScore : (player.score || 0);
-                        enterGame();
+                    if (roomCode.length !== 6) {
+                        if (!autoReconnect) alert('ルームコードは6文字です');
                         return;
                     }
 
-                    showNameSelection();
-                } catch (error) {
-                    alert('ルームが見つかりません');
+                    try {
+                        const roomData = await roomManager.joinRoom(roomCode);
+
+                        if (playerToken && roomData.players && roomData.players[playerToken]) {
+                            await reconnectExistingPlayer(roomData.players[playerToken]);
+                            return;
+                        }
+
+                        if (displayName && savedRoomCode === roomCode && typeof roomManager.reconnectPlayerByName === 'function') {
+                            const restored = await roomManager.reconnectPlayerByName(displayName);
+                            if (restored) {
+                                playerToken = restored.token;
+                                await reconnectExistingPlayer(restored.player);
+                                return;
+                            }
+                        }
+
+                        if (autoReconnect) return;
+                        showNameSelection();
+                    } catch (error) {
+                        if (!autoReconnect) alert('ルームが見つかりません');
+                    }
                 }
+
+                async function reconnectExistingPlayer(existingPlayer) {
+                    const player = await roomManager.addPlayer(playerToken, existingPlayer.displayName);
+                    displayName = player.displayName;
+                    myScore = player.individualScore !== undefined ? player.individualScore : (player.score || 0);
+                    localStorage.setItem('buzzer_player_token', playerToken);
+                    localStorage.setItem('buzzer_player_name', displayName);
+                    localStorage.setItem('buzzer_player_room', roomCode);
+                    enterGame();
+                }
+
+                // ルーム確認
+                document.getElementById('checkRoomBtn').addEventListener('click', () => {
+                    checkRoom({ autoReconnect: false });
                 });
+
+                if (roomFromUrl && (playerToken || displayName)) {
+                    checkRoom({ autoReconnect: true });
+                }
 
                 function showNameSelection() {
                     roomCodeSection.classList.add('hidden');
                     nameSection.classList.remove('hidden');
+                    if (playerToken && displayName && savedRoomCode === roomCode) {
+                        reconnectHint.className = 'mb-md';
+                        reconnectHint.innerHTML = `
+                            <button class="btn btn-secondary" id="reconnectButton" style="width:100%;">
+                                前回の名前「${escapeHtml(displayName)}」で復帰
+                            </button>
+                        `;
+                        document.getElementById('reconnectButton').onclick = async () => {
+                            try {
+                                const roomData = await roomManager.joinRoom(roomCode);
+                                if (playerToken && roomData.players && roomData.players[playerToken]) {
+                                    await reconnectExistingPlayer(roomData.players[playerToken]);
+                                } else if (typeof roomManager.reconnectPlayerByName === 'function') {
+                                    const restored = await roomManager.reconnectPlayerByName(displayName);
+                                    if (restored) {
+                                        playerToken = restored.token;
+                                        await reconnectExistingPlayer(restored.player);
+                                    } else {
+                                        throw new Error('NO_RECONNECT_TARGET');
+                                    }
+                                } else {
+                                    throw new Error('NO_RECONNECT_TARGET');
+                                }
+                            } catch (error) {
+                                reconnectHint.classList.add('hidden');
+                                playerToken = null;
+                                localStorage.removeItem('buzzer_player_token');
+                                generateNameOptions();
+                                alert('復帰に失敗しました。名前を選び直してください。');
+                            }
+                        };
+                    } else {
+                        reconnectHint.classList.add('hidden');
+                        reconnectHint.innerHTML = '';
+                    }
                     
                     // namesData が読み込まれるまで待つ
                     if (!namesData || !namesData.modifiers) {
@@ -431,6 +495,8 @@
                         displayName = player.displayName;
                         myScore = player.individualScore !== undefined ? player.individualScore : (player.score || 0);
                         localStorage.setItem('buzzer_player_token', playerToken);
+                        localStorage.setItem('buzzer_player_name', displayName);
+                        localStorage.setItem('buzzer_player_room', roomCode);
                         enterGame();
                     } catch (error) {
                         alert('参加に失敗しました');
@@ -764,6 +830,9 @@
                     if (playerToken) {
                         roomManager.disconnectPlayer(playerToken);
                     }
+                    localStorage.removeItem('buzzer_player_token');
+                    localStorage.removeItem('buzzer_player_name');
+                    localStorage.removeItem('buzzer_player_room');
                     window.location.href = 'index.html';
                 }
             });

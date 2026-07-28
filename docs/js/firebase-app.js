@@ -247,6 +247,26 @@ class RoomManager {
         return player;
     }
 
+    // 保存済みの名前で、オフラインになっている同一参加者へ復帰
+    async reconnectPlayerByName(displayName) {
+        const normalizedName = (displayName || '').trim();
+        if (!normalizedName) return null;
+
+        const playersSnapshot = await this.roomRef.child('players').once('value');
+        const players = playersSnapshot.val() || {};
+        const entry = Object.entries(players).find(([, player]) =>
+            player.displayName === normalizedName && player.connectionStatus === 'offline'
+        );
+        if (!entry) return null;
+
+        const [token, player] = entry;
+        await this.roomRef.child(`players/${token}`).update({
+            connectionStatus: 'online',
+            lastSeen: firebase.database.ServerValue.TIMESTAMP
+        });
+        return { token, player: { ...player, playerToken: token, connectionStatus: 'online' } };
+    }
+
     // プレイヤー切断
     async disconnectPlayer(playerToken) {
         await this.roomRef.child(`players/${playerToken}`).update({
