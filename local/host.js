@@ -249,6 +249,18 @@ function renderBadge(state) {
     badge.textContent = state;
 }
 
+function trueFalseAnswerStats(players) {
+    const answerable = players.filter(player =>
+        player.playerState !== 'LOCKED_PENALTY_THIS' &&
+        player.playerState !== 'LOCKED_PENALTY_NEXT'
+    );
+    const answeredTokens = new Set(Object.keys(room.trueFalseAnswers || {}));
+    return {
+        answered: answerable.filter(player => answeredTokens.has(player.playerToken)).length,
+        total: answerable.length
+    };
+}
+
 function renderMainState(players, hasWinner, hasPenalty) {
     const finished = room.roomState === 'FINISHED';
     el('controlSection').classList.toggle('hidden', finished);
@@ -279,7 +291,7 @@ function renderMainState(players, hasWinner, hasPenalty) {
     judgeButtons.classList.toggle('hidden', !(showJudge || showTrueFalseJudge));
     openBtn.classList.toggle('hidden', !showOpen);
     nextBtn.classList.toggle('hidden', !showNext);
-    voteCount.classList.toggle('hidden', !(room.rules?.answerRule === 'support' && showJudge));
+    voteCount.classList.toggle('hidden', !((room.rules?.answerRule === 'support' && showJudge) || showTrueFalseJudge));
 
     if (!judgementTimeoutId && !afterCorrect && !afterWrong) {
         judgementDisplay.classList.add('hidden');
@@ -296,6 +308,8 @@ function renderMainState(players, hasWinner, hasPenalty) {
     if (showTrueFalseJudge) {
         el('correctBtn').textContent = '○';
         el('wrongBtn').textContent = '×';
+        const stats = trueFalseAnswerStats(players);
+        voteCount.textContent = `回答済み: ${stats.answered} / ${stats.total}人`;
         waitingDisplay.innerHTML = '<p class="text-success" style="font-size: 1.2rem;">◯×回答受付中... 正解を選んでください</p>';
         waitingDisplay.classList.remove('hidden');
     } else if (isFirstWait) {

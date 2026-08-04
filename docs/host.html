@@ -882,6 +882,12 @@
                 const hasPenalty = pVals.some(p =>
                     p.playerState === 'LOCKED_PENALTY_THIS' || p.playerState === 'LOCKED_PENALTY_NEXT'
                 );
+                const trueFalseAnswerablePlayers = pVals.filter(p =>
+                    p.playerState !== 'LOCKED_PENALTY_THIS' &&
+                    p.playerState !== 'LOCKED_PENALTY_NEXT'
+                );
+                const trueFalseAnsweredTokens = new Set(Object.keys(room.trueFalseAnswers || {}));
+                const trueFalseAnsweredCount = trueFalseAnswerablePlayers.filter(p => trueFalseAnsweredTokens.has(p.playerToken)).length;
                 const isTrueFalseJudged = room.roomState === 'WAITING' && room.canAdvance && (room.lastJudgement === 'circle' || room.lastJudgement === 'cross');
 
                 if (room.roomState === 'WAITING') {
@@ -1027,7 +1033,12 @@
                         document.getElementById('correctBtn').textContent = '○';
                         document.getElementById('wrongBtn').textContent = '×';
                         winnerDisplay.classList.add('hidden');
-                        supportVoteCount.classList.add('hidden');
+                        if (room.rules?.answerRule === 'trueFalse') {
+                            supportVoteCount.textContent = `回答済み: ${trueFalseAnsweredCount} / ${trueFalseAnswerablePlayers.length}人`;
+                            supportVoteCount.classList.remove('hidden');
+                        } else {
+                            supportVoteCount.classList.add('hidden');
+                        }
                         waitingDisplay.classList.toggle('hidden', room.rules?.answerRule !== 'trueFalse');
                         // 判定結果表示を隠す
                         document.getElementById('judgementDisplay').classList.add('hidden');
