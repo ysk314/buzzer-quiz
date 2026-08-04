@@ -179,6 +179,23 @@
             margin-top: 12px;
         }
 
+        .true-false-answer-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 18px;
+            margin-top: 14px;
+        }
+
+        .true-false-answer-btn {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            font-size: 3rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
         /* 終了画面用スタイル */
         .game-finished .buzzer-area {
             display: none;
@@ -250,6 +267,14 @@
             <button class="buzzer-btn" id="buzzerBtn" disabled>
                 <span id="buzzerText">PUSH!</span>
             </button>
+            <div id="trueFalseAnswerPanel" class="support-vote-panel hidden">
+                <strong>答えを選んでください</strong>
+                <div class="true-false-answer-buttons">
+                    <button class="btn btn-success true-false-answer-btn" data-answer="circle">○</button>
+                    <button class="btn btn-danger true-false-answer-btn" data-answer="cross">×</button>
+                </div>
+                <p id="trueFalseAnswerStatus" class="text-secondary" style="margin: 12px 0 0;"></p>
+            </div>
             <div id="supportVotePanel" class="support-vote-panel hidden">
                 <strong><span id="answererName"></span>さんの回答を支持しますか？</strong>
                 <div class="support-vote-buttons">
@@ -309,6 +334,9 @@
             let prevScore = 0;
             let wasWinner = false;
             let rejoinCandidates = [];
+            let currentRoomRules = {};
+            let currentTrueFalseAnswers = {};
+            let lastTrueFalseAnswer = null;
 
             const joinScreen = document.getElementById('joinScreen');
             const mainScreen = document.getElementById('mainScreen');
@@ -318,6 +346,7 @@
             const roomCodeInput = document.getElementById('roomCodeInput');
             const buzzerBtn = document.getElementById('buzzerBtn');
             const supportVotePanel = document.getElementById('supportVotePanel');
+            const trueFalseAnswerPanel = document.getElementById('trueFalseAnswerPanel');
             const supportYesBtn = document.getElementById('supportYesBtn');
             const supportNoBtn = document.getElementById('supportNoBtn');
 
@@ -519,6 +548,18 @@
 
             supportYesBtn.addEventListener('click', () => castSupportVote('support'));
             supportNoBtn.addEventListener('click', () => castSupportVote('oppose'));
+            document.querySelectorAll('[data-answer]').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const result = await roomManager.submitTrueFalseAnswer(playerToken, button.dataset.answer);
+                    if (result.success) {
+                        lastTrueFalseAnswer = button.dataset.answer;
+                        document.getElementById('trueFalseAnswerStatus').textContent = `${button.dataset.answer === 'circle' ? '○' : '×'}で回答しました`;
+                        document.querySelectorAll('[data-answer]').forEach(answerButton => answerButton.disabled = true);
+                    } else {
+                        document.getElementById('trueFalseAnswerStatus').textContent = '回答を受け付けられませんでした';
+                    }
+                });
+            });
 
             function enterGame() {
                 joinScreen.classList.add('hidden');
@@ -546,6 +587,7 @@
                 buzzerBtn.addEventListener('click', async () => {
                     if (buzzerBtn.disabled) return;
                     if (playerState !== 'READY' || roomState !== 'OPEN') return;
+                    if (currentRoomRules.answerRule === 'trueFalse') return;
 
                     buzzerBtn.classList.add('pressed');
                     playerState = 'PRESSED';
@@ -567,6 +609,15 @@
                 const players = room.players || {};
                 const me = players[playerToken];
                 const teamMode = room.rules && room.rules.teamMode;
+                currentRoomRules = room.rules || {};
+                currentTrueFalseAnswers = room.trueFalseAnswers || {};
+                if (currentTrueFalseAnswers[playerToken]?.answer) {
+                    lastTrueFalseAnswer = currentTrueFalseAnswers[playerToken].answer;
+                }
+                if (prevRoomState === 'OPEN' && roomState === 'WAITING' && (room.lastJudgement === 'circle' || room.lastJudgement === 'cross')) {
+                    showResult(lastTrueFalseAnswer === room.lastJudgement);
+                    lastTrueFalseAnswer = null;
+                }
 
                 if (me) {
                     // スコア変化をチェック
@@ -683,8 +734,20 @@
             function updateBuzzerState() {
                 const statusText = document.getElementById('statusText');
                 const buzzerText = document.getElementById('buzzerText');
+                const trueFalseMode = currentRoomRules.answerRule === 'trueFalse';
+                const myTrueFalseAnswer = currentTrueFalseAnswers[playerToken]?.answer;
 
                 statusText.className = 'status-text';
+                trueFalseAnswerPanel.classList.toggle('hidden', !(trueFalseMode && roomState === 'OPEN' && playerState !== 'LOCKED_PENALTY_THIS' && playerState !== 'LOCKED_PENALTY_NEXT'));
+                buzzerBtn.classList.toggle('hidden', trueFalseMode || roomState === 'FINISHED');
+                if (trueFalseMode && roomState === 'OPEN') {
+                    document.getElementById('trueFalseAnswerStatus').textContent = myTrueFalseAnswer
+                        ? `${myTrueFalseAnswer === 'circle' ? '○' : '×'}で回答しました`
+                        : 'ホストの判定を待ちます';
+                    document.querySelectorAll('[data-answer]').forEach(button => {
+                        button.disabled = Boolean(myTrueFalseAnswer) || playerState !== 'READY';
+                    });
+                }
 
                 switch (roomState) {
                     case 'WAITING':
@@ -694,7 +757,16 @@
                         buzzerText.textContent = 'WAIT';
                         break;
                     case 'OPEN':
-                        if (playerState === 'READY') {
+                        if (trueFalseMode && playerState === 'READY') {
+                            statusText.textContent = '○か×を選んでください';
+                            statusText.classList.add('status-open');
+                            buzzerBtn.disabled = true;
+                            buzzerText.textContent = 'WAIT';
+                        } else if (trueFalseMode) {
+                            statusText.textContent = '回答済みです';
+                            statusText.classList.add('status-pressed');
+                            buzzerBtn.disabled = true;
+                        } else if (playerState === 'READY') {
                             statusText.textContent = '🔥 早押しスタート！';
                             statusText.classList.add('status-open');
                             buzzerBtn.disabled = false;

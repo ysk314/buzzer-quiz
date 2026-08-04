@@ -53,6 +53,14 @@
             <h2 class="hidden" id="finishText">🏆 最終結果 🏆</h2>
             <p id="status" class="local-status">接続中...</p>
             <button id="buzzer" class="local-buzzer" disabled>PUSH!</button>
+            <div id="trueFalsePanel" class="local-vote hidden">
+                <strong>答えを選んでください</strong>
+                <div class="local-true-false-buttons">
+                    <button class="btn btn-success true-false-btn" data-answer="circle">○</button>
+                    <button class="btn btn-danger true-false-btn" data-answer="cross">×</button>
+                </div>
+                <p id="trueFalseStatus" class="text-secondary mt-md"></p>
+            </div>
             <div id="vote" class="local-vote hidden">
                 <strong><span id="answerer"></span>さんの回答を支持しますか？</strong>
                 <div class="local-vote-buttons">

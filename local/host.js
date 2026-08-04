@@ -142,11 +142,23 @@ el('openBtn').onclick = () => {
     emit('openBuzz', { clearPenalties: room.roomState === 'OPEN' });
 };
 el('correctBtn').onclick = () => {
+    if (room?.rules?.answerRule === 'trueFalse') {
+        showJudgement('circle');
+        playSound('correct');
+        emit('judgeTrueFalse', { correctAnswer: 'circle' });
+        return;
+    }
     showJudgement('correct');
     playSound('correct');
     emit('judge', { result: 'correct' });
 };
 el('wrongBtn').onclick = () => {
+    if (room?.rules?.answerRule === 'trueFalse') {
+        showJudgement('cross');
+        playSound('wrong');
+        emit('judgeTrueFalse', { correctAnswer: 'cross' });
+        return;
+    }
     showJudgement('wrong');
     playSound('wrong');
     emit('judge', { result: 'wrong' });
@@ -256,13 +268,15 @@ function renderMainState(players, hasWinner, hasPenalty) {
 
     const isFirstWait = room.roundNumber === 1 && room.roomState === 'WAITING' && !room.canUndo;
     const afterCorrect = room.roomState === 'WAITING' && room.lastJudgement === 'correct';
+    const afterTrueFalse = room.roomState === 'WAITING' && (room.lastJudgement === 'circle' || room.lastJudgement === 'cross');
     const afterWrong = room.roomState === 'LOCKED' && room.lastJudgement === 'wrong';
     const showJudge = room.roomState === 'LOCKED' && hasWinner;
-    const showOpen = !showJudge && (room.roomState === 'WAITING' || room.roomState === 'LOCKED' || (room.roomState === 'OPEN' && hasPenalty)) && !afterCorrect;
-    const showNext = afterCorrect || afterWrong;
+    const showTrueFalseJudge = room.rules?.answerRule === 'trueFalse' && room.roomState === 'OPEN';
+    const showOpen = !showJudge && (room.roomState === 'WAITING' || room.roomState === 'LOCKED' || (room.roomState === 'OPEN' && hasPenalty)) && !afterCorrect && !afterTrueFalse;
+    const showNext = afterCorrect || afterTrueFalse || afterWrong;
 
     winnerDisplay.classList.toggle('hidden', !showJudge);
-    judgeButtons.classList.toggle('hidden', !showJudge);
+    judgeButtons.classList.toggle('hidden', !(showJudge || showTrueFalseJudge));
     openBtn.classList.toggle('hidden', !showOpen);
     nextBtn.classList.toggle('hidden', !showNext);
     voteCount.classList.toggle('hidden', !(room.rules?.answerRule === 'support' && showJudge));
@@ -279,7 +293,14 @@ function renderMainState(players, hasWinner, hasPenalty) {
         voteCount.textContent = `支持投票: ○ ${supported}人 / 回答済み ${votes.length}人`;
     }
 
-    if (isFirstWait) {
+    if (showTrueFalseJudge) {
+        el('correctBtn').textContent = '○';
+        el('wrongBtn').textContent = '×';
+        waitingDisplay.innerHTML = '<p class="text-success" style="font-size: 1.2rem;">◯×回答受付中... 正解を選んでください</p>';
+        waitingDisplay.classList.remove('hidden');
+    } else if (isFirstWait) {
+        el('correctBtn').textContent = '○';
+        el('wrongBtn').textContent = '×';
         openBtn.textContent = '🚀 クイズスタート！';
         waitingDisplay.innerHTML = '<p class="text-secondary" style="font-size: 1.2rem;">参加者が揃ったら、「クイズスタート」をタップ！</p>';
         waitingDisplay.classList.remove('hidden');
@@ -287,8 +308,8 @@ function renderMainState(players, hasWinner, hasPenalty) {
         openBtn.textContent = hasPenalty ? '🔓 全員ペナルティ解除' : '🔓 回答再開';
         waitingDisplay.innerHTML = '<p class="text-success" style="font-size: 1.2rem;">🔹 回答受付中... （ボタンを連打できます！）</p>';
         waitingDisplay.classList.toggle('hidden', !hasPenalty);
-    } else if (afterCorrect) {
-        waitingDisplay.innerHTML = '<p class="text-accent" style="font-size: 1.2rem;">正解！「次の問題へ」を押してください</p>';
+    } else if (afterCorrect || afterTrueFalse) {
+        waitingDisplay.innerHTML = '<p class="text-accent" style="font-size: 1.2rem;">判定完了。「次の問題へ」を押してください</p>';
         waitingDisplay.classList.remove('hidden');
     } else if (afterWrong) {
         openBtn.textContent = hasPenalty ? '🔓 全員ペナルティ解除' : '🔓 回答再開';
@@ -308,8 +329,8 @@ function renderMainState(players, hasWinner, hasPenalty) {
 function showJudgement(result) {
     const judgementDisplay = el('judgementDisplay');
     const judgementIcon = el('judgementIcon');
-    judgementIcon.textContent = result === 'correct' ? '◯' : '×';
-    judgementIcon.style.color = result === 'correct' ? 'var(--accent-green)' : 'var(--accent-red)';
+    judgementIcon.textContent = (result === 'correct' || result === 'circle') ? '◯' : '×';
+    judgementIcon.style.color = (result === 'correct' || result === 'circle') ? 'var(--accent-green)' : 'var(--accent-red)';
     judgementDisplay.classList.remove('hidden');
     el('winnerDisplay').classList.add('hidden');
     el('judgeButtons').classList.add('hidden');

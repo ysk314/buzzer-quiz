@@ -137,6 +137,12 @@ io.on('connection', socket => {
         emitRoom(roomCode);
     });
 
+    socket.on('trueFalseAnswer', ({ roomCode, token, answer }, callback) => {
+        if (joinedRoom !== roomCode || playerToken !== token) return callback({ success: false });
+        callback(gameLogic.submitTrueFalseAnswer(roomCode, token, answer));
+        emitRoom(roomCode);
+    });
+
     socket.on('supportVote', ({ roomCode, token, choice }, callback) => {
         if (joinedRoom !== roomCode || playerToken !== token) return callback({ success: false });
         callback({ success: gameLogic.castSupportVote(roomCode, token, choice) });
@@ -146,6 +152,12 @@ io.on('connection', socket => {
     socket.on('judge', ({ roomCode, result }, callback) => {
         if (!host || joinedRoom !== roomCode || !roomManager.isHost(roomCode, socket.id)) return callback({ success: false });
         callback({ success: gameLogic.judge(roomCode, result) });
+        emitRoom(roomCode);
+    });
+
+    socket.on('judgeTrueFalse', ({ roomCode, correctAnswer }, callback) => {
+        if (!host || joinedRoom !== roomCode || !roomManager.isHost(roomCode, socket.id)) return callback({ success: false });
+        callback({ success: gameLogic.judgeTrueFalse(roomCode, correctAnswer) });
         emitRoom(roomCode);
     });
 

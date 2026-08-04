@@ -334,6 +334,23 @@
     margin-top: 18px;
 }
 
+.local-true-false-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-top: 18px;
+}
+
+.true-false-btn {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    font-size: 3rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .local-ranking {
     margin-top: auto;
 }

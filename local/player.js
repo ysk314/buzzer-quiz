@@ -14,6 +14,7 @@ let clockOffset = null;
 let clockSamples = [];
 let lastRoomReceivedAt = null;
 let rejoinCandidates = [];
+let lastTrueFalseAnswer = null;
 
 const el = id => document.getElementById(id);
 el('room').value = roomCode;
@@ -208,6 +209,17 @@ function showResult(correct) {
 el('buzzer').onclick = () => socket.emit('buzz', { roomCode, token, clientPressedAt: performance.now() }, result => {
     if (!result?.success && result?.error === 'NOT_OPEN_YET') el('status').textContent = '開始時刻を同期中です';
 });
+document.querySelectorAll('[data-answer]').forEach(button => button.onclick = () => socket.emit('trueFalseAnswer', {
+    roomCode, token, answer: button.dataset.answer
+}, result => {
+    if (result?.success) {
+        lastTrueFalseAnswer = button.dataset.answer;
+        el('trueFalseStatus').textContent = `${button.dataset.answer === 'circle' ? '○' : '×'}で回答しました`;
+        document.querySelectorAll('[data-answer]').forEach(answerButton => answerButton.disabled = true);
+    } else {
+        el('trueFalseStatus').textContent = '回答を受け付けられませんでした';
+    }
+}));
 document.querySelectorAll('[data-vote]').forEach(button => button.onclick = () => socket.emit('supportVote', {
     roomCode, token, choice: button.dataset.vote
 }, result => {
@@ -226,6 +238,15 @@ function render(nextRoom) {
     el('score').textContent = myScore;
     el('individualScore').textContent = myScore;
     renderTeamStatus(me);
+    const trueFalseMode = room.rules?.answerRule === 'trueFalse';
+    const myTrueFalseAnswerBeforeJudgement = room.trueFalseAnswers?.[token]?.answer;
+    if (myTrueFalseAnswerBeforeJudgement) lastTrueFalseAnswer = myTrueFalseAnswerBeforeJudgement;
+    if (previousState === 'OPEN' && room.roomState === 'WAITING' && (room.lastJudgement === 'circle' || room.lastJudgement === 'cross')) {
+        const correct = lastTrueFalseAnswer === room.lastJudgement;
+        showResult(correct);
+        playSound(correct ? 'correct' : 'wrong');
+        lastTrueFalseAnswer = null;
+    }
     if (previousState === 'LOCKED' && previousWinner === token && !room.winner) {
         const correct = myScore > previousScore;
         showResult(correct);
@@ -236,11 +257,12 @@ function render(nextRoom) {
     const winner = room.winner;
     const msUntilOpen = room.openTimestamp ? room.openTimestamp - estimatedServerNow() : 0;
     const scheduledOpenReady = room.roomState === 'OPEN' && msUntilOpen <= 0;
-    const canBuzz = scheduledOpenReady && me.playerState === 'READY';
+    const canBuzz = !trueFalseMode && scheduledOpenReady && me.playerState === 'READY';
+    const canAnswerTrueFalse = trueFalseMode && scheduledOpenReady && me.playerState === 'READY';
     el('buzzer').disabled = !canBuzz;
     el('buzzer').textContent = canBuzz ? 'PUSH!' : (me.playerState === 'LOCKED_PENALTY_THIS' ? '🚫' : 'WAIT');
     el('status').className = 'local-status';
-    el('status').textContent = room.roomState === 'FINISHED' ? 'お疲れ様でした！' : room.roomState === 'OPEN' ? (msUntilOpen > 0 ? '開始準備中…' : (canBuzz ? '🔥 早押しスタート！' : '回答できません')) :
+    el('status').textContent = room.roomState === 'FINISHED' ? 'お疲れ様でした！' : room.roomState === 'OPEN' ? (msUntilOpen > 0 ? '開始準備中…' : (trueFalseMode ? (canAnswerTrueFalse ? '○か×を選んでください' : '回答済みです') : (canBuzz ? '🔥 早押しスタート！' : '回答できません'))) :
         winner ? (winner.playerToken === token ? '先着！判定を待っています' : '他の人が先着しました') :
         (room.pending ? '早押し判定中…' : '待機中');
     scheduleOpenRefresh(msUntilOpen);
@@ -251,6 +273,15 @@ function render(nextRoom) {
     el('buzzer').classList.toggle('winner', winner?.playerToken === token);
     el('buzzer').classList.toggle('locked', !canBuzz && !winner);
     el('buzzer').classList.toggle('hidden', room.roomState === 'FINISHED');
+    el('buzzer').classList.toggle('hidden', trueFalseMode || room.roomState === 'FINISHED');
+    el('trueFalsePanel').classList.toggle('hidden', !trueFalseMode || room.roomState !== 'OPEN' || msUntilOpen > 0 || me.playerState === 'LOCKED_PENALTY_THIS' || me.playerState === 'LOCKED_PENALTY_NEXT');
+    const myTrueFalseAnswer = room.trueFalseAnswers?.[token]?.answer;
+    if (trueFalseMode && room.roomState === 'OPEN') {
+        el('trueFalseStatus').textContent = myTrueFalseAnswer ? `${myTrueFalseAnswer === 'circle' ? '○' : '×'}で回答しました` : 'ホストの判定を待ちます';
+        document.querySelectorAll('[data-answer]').forEach(button => {
+            button.disabled = Boolean(myTrueFalseAnswer) || me.playerState !== 'READY';
+        });
+    }
     el('finishText').classList.toggle('hidden', room.roomState !== 'FINISHED');
     const vote = room.supportVotes?.[token];
     const isPenaltyLocked = me.playerState === 'LOCKED_PENALTY_THIS' || me.playerState === 'LOCKED_PENALTY_NEXT';

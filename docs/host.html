@@ -423,13 +423,14 @@
                 <div class="setting-options">
                     <button class="setting-option active" data-setting="answerRule" data-value="classic">従来ルール</button>
                     <button class="setting-option" data-setting="answerRule" data-value="support">支持投票ルール</button>
+                    <button class="setting-option" data-setting="answerRule" data-value="trueFalse">◯×クイズ</button>
                 </div>
             </div>
 
             <div class="setting-row">
                 <span class="setting-label">正解時の配点</span>
                 <div class="setting-options">
-                    <span class="text-secondary">支持投票ルール: 回答者 +2pt / ○支持者 +1pt / 不正解時の○支持者は当問ロック</span>
+                    <span class="text-secondary">支持投票: 回答者 +2pt / ○支持者 +1pt。◯×クイズ: 正解者全員に設定点。</span>
                 </div>
             </div>
 
@@ -582,12 +583,22 @@
 
                 // 正解
                 document.getElementById('correctBtn').addEventListener('click', async () => {
+                    if (currentRules.answerRule === 'trueFalse') {
+                        playSound('correct');
+                        await roomManager.judgeTrueFalse('circle');
+                        return;
+                    }
                     playSound('correct');
                     await roomManager.judge('correct');
                 });
 
                 // 誤答
                 document.getElementById('wrongBtn').addEventListener('click', async () => {
+                    if (currentRules.answerRule === 'trueFalse') {
+                        playSound('wrong');
+                        await roomManager.judgeTrueFalse('cross');
+                        return;
+                    }
                     playSound('wrong');
                     await roomManager.judge('wrong');
                     setTimeout(async () => {
@@ -871,11 +882,12 @@
                 const hasPenalty = pVals.some(p =>
                     p.playerState === 'LOCKED_PENALTY_THIS' || p.playerState === 'LOCKED_PENALTY_NEXT'
                 );
+                const isTrueFalseJudged = room.roomState === 'WAITING' && room.canAdvance && (room.lastJudgement === 'circle' || room.lastJudgement === 'cross');
 
                 if (room.roomState === 'WAITING') {
                     // 正解(winner)が出た後は canAdvance=true。その間はボタン不要（ユーザー要望）
                     // ただし、ペナルティが残っている場合は表示（解除のため）
-                    showOpenBtn = !room.canAdvance || hasPenalty;
+                    showOpenBtn = isTrueFalseJudged ? false : (!room.canAdvance || hasPenalty);
                 } else if (room.roomState === 'LOCKED') {
                     if (room.winner) {
                         showOpenBtn = false;
@@ -909,10 +921,14 @@
                     waitingDisplay.innerHTML = '<p class="text-secondary" style="font-size: 1.2rem;">参加者が揃ったら、「クイズスタート」をタップ！</p>';
                 } else if (room.roomState === 'OPEN') {
                     // 回答受付中
-                    waitingDisplay.innerHTML = '<p class="text-success" style="font-size: 1.2rem;">🔹 回答受付中... （ボタンを連打できます！）</p>';
+                    waitingDisplay.innerHTML = room.rules?.answerRule === 'trueFalse'
+                        ? '<p class="text-success" style="font-size: 1.2rem;">◯×回答受付中... 正解を選んでください</p>'
+                        : '<p class="text-success" style="font-size: 1.2rem;">🔹 回答受付中... （ボタンを連打できます！）</p>';
                 } else if (room.canAdvance) {
                     // 正解(または誤答)後に canAdvance=true になった際。
-                    waitingDisplay.innerHTML = '<p class="text-accent" style="font-size: 1.2rem;">正解！「次の問題へ」を押してください</p>';
+                    waitingDisplay.innerHTML = isTrueFalseJudged
+                        ? '<p class="text-accent" style="font-size: 1.2rem;">判定完了。「次の問題へ」を押してください</p>'
+                        : '<p class="text-accent" style="font-size: 1.2rem;">正解！「次の問題へ」を押してください</p>';
                 } else if (showOpenBtn) {
                     // ペナルティがいる場合は解除を強調、それ以外は回答再開
                     waitingDisplay.innerHTML = hasPenalty ? '<p class="text-secondary" style="font-size: 1.2rem;">「全員ペナルティ解除」を押すと全員回答可能になります</p>' : '<p class="text-secondary" style="font-size: 1.2rem;">「回答再開」を押してください</p>';
@@ -920,9 +936,9 @@
                     waitingDisplay.innerHTML = '';
                 }
 
-                const isJudgedCorrect = room.roomState === 'WAITING' && room.canAdvance && room.openTimestamp;
+                const isJudgedCorrect = room.roomState === 'WAITING' && room.canAdvance && room.openTimestamp && !isTrueFalseJudged;
                 const isJudgedWrong = room.roomState === 'LOCKED' && room.canAdvance && !room.winner;
-                const judgementStateKey = isJudgedCorrect ? `correct-${rNum}` : isJudgedWrong ? `wrong-${rNum}` : null;
+                const judgementStateKey = isTrueFalseJudged ? `tf-${room.lastJudgement}-${rNum}` : isJudgedCorrect ? `correct-${rNum}` : isJudgedWrong ? `wrong-${rNum}` : null;
 
                 if (!judgementStateKey) {
                     if (judgementTimeoutId) {
@@ -971,7 +987,7 @@
                         judgeButtons.classList.add('hidden');
                         winnerDisplay.classList.add('hidden');
                         supportVoteCount.classList.add('hidden');
-                        if (isJudgedCorrect) {
+                        if (isJudgedCorrect || isTrueFalseJudged) {
                             // 正解：大きな◯だけを表示
                             if (judgementResolvedKey === judgementStateKey) {
                                 if (judgementDisplay) judgementDisplay.classList.add('hidden');
@@ -980,8 +996,8 @@
                                 waitingDisplay.classList.add('hidden');
                             } else {
                                 if (judgementIcon) {
-                                    judgementIcon.textContent = '◯';
-                                    judgementIcon.style.color = 'var(--accent-green)';
+                                    judgementIcon.textContent = isTrueFalseJudged && room.lastJudgement === 'cross' ? '×' : '◯';
+                                    judgementIcon.style.color = isTrueFalseJudged && room.lastJudgement === 'cross' ? 'var(--accent-red)' : 'var(--accent-green)';
                                 }
                                 if (judgementDisplay) judgementDisplay.classList.remove('hidden');
                                 waitingDisplay.classList.add('hidden');
@@ -1007,10 +1023,12 @@
                     case 'OPEN':
                         badge.classList.add('badge-open');
                         badge.textContent = 'OPEN';
-                        judgeButtons.classList.add('hidden');
+                        judgeButtons.classList.toggle('hidden', room.rules?.answerRule !== 'trueFalse');
+                        document.getElementById('correctBtn').textContent = '○';
+                        document.getElementById('wrongBtn').textContent = '×';
                         winnerDisplay.classList.add('hidden');
                         supportVoteCount.classList.add('hidden');
-                        waitingDisplay.classList.add('hidden');
+                        waitingDisplay.classList.toggle('hidden', room.rules?.answerRule !== 'trueFalse');
                         // 判定結果表示を隠す
                         document.getElementById('judgementDisplay').classList.add('hidden');
                         break;

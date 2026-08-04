@@ -52,3 +52,29 @@ test('rejoin candidates only include offline players', () => {
     assert.deepEqual(candidates.map(player => player.playerToken), ['offline-token']);
     assert.equal(candidates[0].displayName, 'Offline');
 });
+
+test('true/false mode scores all answers and disables normal buzzes', () => {
+    const { roomCode } = roomManager.createRoom();
+    const room = roomManager.getRoom(roomCode);
+    room.rules.answerRule = 'trueFalse';
+    room.rules.correctPoints = 1;
+    room.rules.wrongPoints = 1;
+    room.rules.penaltyType = 'thisRound';
+    roomManager.joinPlayer(roomCode, 'circle-token', 'Circle', 'socket-circle');
+    roomManager.joinPlayer(roomCode, 'cross-token', 'Cross', 'socket-cross');
+
+    assert.equal(gameLogic.openBuzz(roomCode), true);
+    assert.equal(gameLogic.queueBuzz(roomCode, 'circle-token').success, false);
+    assert.equal(gameLogic.submitTrueFalseAnswer(roomCode, 'circle-token', 'circle').success, true);
+    assert.equal(gameLogic.submitTrueFalseAnswer(roomCode, 'cross-token', 'cross').success, true);
+    assert.equal(gameLogic.judgeTrueFalse(roomCode, 'circle'), true);
+
+    const circle = roomManager.getPlayer(roomCode, 'circle-token');
+    const cross = roomManager.getPlayer(roomCode, 'cross-token');
+    assert.equal(circle.score, 1);
+    assert.equal(circle.playerState, 'READY');
+    assert.equal(cross.score, 0);
+    assert.equal(cross.playerState, 'LOCKED_PENALTY_THIS');
+    assert.equal(room.roomState, 'WAITING');
+    assert.equal(room.lastJudgement, 'circle');
+});

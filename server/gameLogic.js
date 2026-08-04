@@ -13,6 +13,7 @@ function snapshot(room) {
         lastJudgement: room.lastJudgement,
         winner: room.winner,
         supportVotes: room.supportVotes,
+        trueFalseAnswers: room.trueFalseAnswers || {},
         rules: room.rules,
         teams: room.teams || {},
         players: Array.from(room.players.entries()).map(([token, player]) => [token, { ...player }])
@@ -31,6 +32,7 @@ function resetForOpen(room, clearPenalties) {
     room.winner = null;
     room.pendingBuzzes = [];
     room.supportVotes = {};
+    room.trueFalseAnswers = {};
     for (const player of room.players.values()) {
         if (clearPenalties) {
             player.playerState = 'READY';
@@ -52,7 +54,7 @@ function openBuzz(roomCode, clearPenalties = true) {
 function queueBuzz(roomCode, token, clientPressedAt = null) {
     const room = rooms.getRoom(roomCode);
     const player = rooms.getPlayer(roomCode, token);
-    if (!room || !player || room.roomState !== 'OPEN' || player.playerState !== 'READY') {
+    if (!room || room.rules.answerRule === 'trueFalse' || !player || room.roomState !== 'OPEN' || player.playerState !== 'READY') {
         return { success: false };
     }
     const receivedAt = Date.now();
@@ -75,6 +77,19 @@ function queueBuzz(roomCode, token, clientPressedAt = null) {
     player.playerState = 'PRESSED';
     room.pendingBuzzes.push({ token, receivedAt, adjustedAt, timingSource });
     return { success: true, shouldSchedule: room.pendingBuzzes.length === 1 };
+}
+
+function submitTrueFalseAnswer(roomCode, token, answer) {
+    const room = rooms.getRoom(roomCode);
+    const player = rooms.getPlayer(roomCode, token);
+    if (!room || room.rules.answerRule !== 'trueFalse' || room.roomState !== 'OPEN') return { success: false };
+    if (!player || player.playerState !== 'READY') return { success: false };
+    if (answer !== 'circle' && answer !== 'cross') return { success: false };
+    room.trueFalseAnswers ||= {};
+    if (room.trueFalseAnswers[token]) return { success: false, error: 'ALREADY_ANSWERED' };
+    room.trueFalseAnswers[token] = { answer, answeredAt: Date.now() };
+    player.playerState = 'PRESSED';
+    return { success: true };
 }
 
 function finalizeBuzz(roomCode) {
@@ -166,6 +181,61 @@ function judge(roomCode, result) {
     return true;
 }
 
+function judgeTrueFalse(roomCode, correctAnswer) {
+    const room = rooms.getRoom(roomCode);
+    if (!room || room.rules.answerRule !== 'trueFalse' || room.roomState !== 'OPEN') return false;
+    if (correctAnswer !== 'circle' && correctAnswer !== 'cross') return false;
+    save(room);
+    const addPoints = (player, points) => {
+        const current = player.individualScore !== undefined ? player.individualScore : (player.score || 0);
+        player.individualScore = current + points;
+        player.score = player.individualScore;
+        if (room.rules.teamMode && player.teamId && room.teams?.[player.teamId]) {
+            room.teams[player.teamId].score = (room.teams[player.teamId].score || 0) + points;
+        }
+    };
+    const subtractPoints = (player, points) => {
+        const current = player.individualScore !== undefined ? player.individualScore : (player.score || 0);
+        let nextScore = current - points;
+        if (!room.rules.allowNegative && nextScore < room.rules.minScore) nextScore = room.rules.minScore;
+        const delta = nextScore - current;
+        player.individualScore = nextScore;
+        player.score = nextScore;
+        if (room.rules.teamMode && player.teamId && room.teams?.[player.teamId]) {
+            let teamScore = (room.teams[player.teamId].score || 0) + delta;
+            if (!room.rules.allowNegative && teamScore < room.rules.minScore) teamScore = room.rules.minScore;
+            room.teams[player.teamId].score = teamScore;
+        }
+    };
+
+    for (const [token, player] of room.players) {
+        if (player.playerState === 'LOCKED_PENALTY_THIS' || player.playerState === 'LOCKED_PENALTY_NEXT') continue;
+        const answer = room.trueFalseAnswers?.[token]?.answer;
+        if (answer === correctAnswer) {
+            addPoints(player, room.rules.correctPoints);
+            player.playerState = 'READY';
+        } else {
+            subtractPoints(player, room.rules.wrongPoints);
+            if (room.rules.penaltyType === 'nextRound') {
+                player.playerState = 'LOCKED_PENALTY_THIS';
+                player.penaltyNextRound = true;
+            } else if (room.rules.penaltyType === 'thisRound') {
+                player.playerState = 'LOCKED_PENALTY_THIS';
+            } else {
+                player.playerState = 'READY';
+            }
+        }
+    }
+
+    room.roomState = 'WAITING';
+    room.lastJudgement = correctAnswer === 'circle' ? 'circle' : 'cross';
+    room.winner = null;
+    room.pendingBuzzes = [];
+    room.supportVotes = {};
+    room.trueFalseAnswers = {};
+    return true;
+}
+
 function nextRound(roomCode) {
     const room = rooms.getRoom(roomCode);
     if (!room || room.roomState === 'FINISHED') return false;
@@ -195,6 +265,7 @@ function undo(roomCode) {
     room.lastJudgement = previous.lastJudgement || null;
     room.winner = previous.winner;
     room.supportVotes = previous.supportVotes || {};
+    room.trueFalseAnswers = previous.trueFalseAnswers || {};
     room.rules = previous.rules || room.rules;
     room.teams = previous.teams || {};
     room.players = new Map(previous.players);
@@ -213,7 +284,8 @@ function finishGame(roomCode) {
     room.winner = null;
     room.pendingBuzzes = [];
     room.supportVotes = {};
+    room.trueFalseAnswers = {};
     return true;
 }
 
-module.exports = { FAIRNESS_WINDOW_MS, OPEN_DELAY_MS, openBuzz, queueBuzz, finalizeBuzz, castSupportVote, judge, nextRound, undo, finishGame };
+module.exports = { FAIRNESS_WINDOW_MS, OPEN_DELAY_MS, openBuzz, queueBuzz, submitTrueFalseAnswer, finalizeBuzz, castSupportVote, judge, judgeTrueFalse, nextRound, undo, finishGame };

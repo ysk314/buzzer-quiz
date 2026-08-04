@@ -175,6 +175,7 @@ class RoomManager {
             canAdvance: false,
             openTimestamp: null,
             winner: null,
+            trueFalseAnswers: {},
             players: {},
             teams: {},
             createdAt: firebase.database.ServerValue.TIMESTAMP
@@ -317,7 +318,8 @@ class RoomManager {
             openTimestamp: firebase.database.ServerValue.TIMESTAMP,
             winner: null,
             buzzQueue: null,
-            supportVotes: null
+            supportVotes: null,
+            trueFalseAnswers: null
         });
 
         const playersSnapshot = await this.roomRef.child('players').once('value');
@@ -423,6 +425,9 @@ class RoomManager {
         if (room.roomState !== 'OPEN') {
             return { success: false, error: 'NOT_OPEN' };
         }
+        if (room.rules?.answerRule === 'trueFalse') {
+            return { success: false, error: 'TRUE_FALSE_MODE' };
+        }
 
         const player = room.players[playerToken];
         if (!player || player.playerState !== 'READY') {
@@ -469,6 +474,31 @@ class RoomManager {
         return { success: false, error: 'TRANSACTION_FAILED' };
     }
 
+    async submitTrueFalseAnswer(playerToken, answer) {
+        if (answer !== 'circle' && answer !== 'cross') {
+            return { success: false, error: 'INVALID_ANSWER' };
+        }
+
+        const result = await this.roomRef.transaction((data) => {
+            if (!data || data.roomState !== 'OPEN' || !data.players || !data.players[playerToken]) return;
+            if (data.rules?.answerRule !== 'trueFalse') return;
+            const player = data.players[playerToken];
+            if (player.playerState !== 'READY') return;
+            data.trueFalseAnswers = data.trueFalseAnswers || {};
+            if (data.trueFalseAnswers[playerToken]) return;
+            data.trueFalseAnswers[playerToken] = {
+                answer,
+                answeredAt: firebase.database.ServerValue.TIMESTAMP
+            };
+            player.playerState = 'PRESSED';
+            return data;
+        });
+
+        return result.committed
+            ? { success: true }
+            : { success: false, error: 'ANSWER_CLOSED_OR_ALREADY_ANSWERED' };
+    }
+
     // 回答への支持投票（回答者自身は投票不可、1人1票）
     async castSupportVote(playerToken, choice) {
         if (choice !== 'support' && choice !== 'oppose') {
@@ -508,7 +538,8 @@ class RoomManager {
                 roundNumber: room.roundNumber,
                 winner: room.winner,
                 canAdvance: room.canAdvance || false,
-                supportVotes: room.supportVotes || null
+                supportVotes: room.supportVotes || null,
+                trueFalseAnswers: room.trueFalseAnswers || null
             }));
 
             const winnerToken = room.winner.playerToken;
@@ -569,6 +600,83 @@ class RoomManager {
             }
 
             room.supportVotes = null;
+            room.trueFalseAnswers = null;
+            return room;
+        });
+
+        return transaction.committed ? { success: true } : { success: false, error: 'INVALID_STATE' };
+    }
+
+    async judgeTrueFalse(correctAnswer) {
+        if (correctAnswer !== 'circle' && correctAnswer !== 'cross') {
+            return { success: false, error: 'INVALID_ANSWER' };
+        }
+
+        const transaction = await this.roomRef.transaction((room) => {
+            if (!room || room.roomState !== 'OPEN' || !room.players) return;
+            const rules = room.rules || DEFAULT_RULES;
+            if (rules.answerRule !== 'trueFalse') return;
+
+            room.backup = JSON.parse(JSON.stringify({
+                players: room.players,
+                teams: room.teams || null,
+                roomState: room.roomState,
+                roundNumber: room.roundNumber,
+                winner: room.winner || null,
+                canAdvance: room.canAdvance || false,
+                trueFalseAnswers: room.trueFalseAnswers || null
+            }));
+
+            const addPoints = (token, points) => {
+                const target = room.players[token];
+                const current = target.individualScore !== undefined ? target.individualScore : (target.score || 0);
+                target.individualScore = current + points;
+                target.score = target.individualScore;
+                if (rules.teamMode && target.teamId && room.teams && room.teams[target.teamId]) {
+                    room.teams[target.teamId].score = (room.teams[target.teamId].score || 0) + points;
+                }
+            };
+
+            const subtractPoints = (token, points) => {
+                const target = room.players[token];
+                const current = target.individualScore !== undefined ? target.individualScore : (target.score || 0);
+                let nextScore = current - points;
+                if (!rules.allowNegative && nextScore < rules.minScore) nextScore = rules.minScore;
+                const delta = nextScore - current;
+                target.individualScore = nextScore;
+                target.score = nextScore;
+                if (rules.teamMode && target.teamId && room.teams && room.teams[target.teamId]) {
+                    let teamScore = (room.teams[target.teamId].score || 0) + delta;
+                    if (!rules.allowNegative && teamScore < rules.minScore) teamScore = rules.minScore;
+                    room.teams[target.teamId].score = teamScore;
+                }
+            };
+
+            Object.entries(room.players).forEach(([token, player]) => {
+                if (player.playerState === 'LOCKED_PENALTY_THIS' || player.playerState === 'LOCKED_PENALTY_NEXT') return;
+                const answer = room.trueFalseAnswers?.[token]?.answer;
+                if (answer === correctAnswer) {
+                    addPoints(token, rules.correctPoints);
+                    player.playerState = 'READY';
+                } else {
+                    subtractPoints(token, rules.wrongPoints);
+                    if (rules.penaltyType === 'nextRound') {
+                        player.playerState = 'LOCKED_PENALTY_THIS';
+                        player.penaltyNextRound = true;
+                    } else if (rules.penaltyType === 'thisRound') {
+                        player.playerState = 'LOCKED_PENALTY_THIS';
+                    } else {
+                        player.playerState = 'READY';
+                    }
+                }
+            });
+
+            room.roomState = 'WAITING';
+            room.canAdvance = true;
+            room.lastJudgement = correctAnswer;
+            room.winner = null;
+            room.supportVotes = null;
+            room.trueFalseAnswers = null;
             return room;
         });
 
@@ -592,6 +700,7 @@ class RoomManager {
             winner: room.backup.winner,
             canAdvance: room.backup.canAdvance || false,
             supportVotes: room.backup.supportVotes || null,
+            trueFalseAnswers: room.backup.trueFalseAnswers || null,
             backup: null // 使用後は消去
         };
 
@@ -633,6 +742,7 @@ class RoomManager {
             canAdvance: false,
             openTimestamp: firebase.database.ServerValue.TIMESTAMP,
             winner: null,
+            trueFalseAnswers: null,
             backup: backup
         };
 
@@ -679,6 +789,7 @@ class RoomManager {
             canAdvance: updates.canAdvance,
             openTimestamp: updates.openTimestamp,
             winner: null,
+            trueFalseAnswers: null,
             backup: cleanBackup
         };
 
@@ -707,7 +818,8 @@ class RoomManager {
         await this.roomRef.update({
             roomState: 'FINISHED',
             canAdvance: false,
-            winner: null
+            winner: null,
+            trueFalseAnswers: null
         });
     }
 
